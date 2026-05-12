@@ -4,7 +4,6 @@
 [![Symfony](https://img.shields.io/badge/Symfony-7.1-green.svg)](https://symfony.com)
 [![API Platform](https://img.shields.io/badge/API_Platform-4.0-orange.svg)](https://api-platform.com)
 [![PHPStan](https://img.shields.io/badge/PHPStan-Level_8-brightgreen.svg)](https://phpstan.org)
-[![Coverage](https://img.shields.io/badge/Coverage-placeholder-yellow.svg)](#)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)
 
 A production-quality PHP/Symfony/API Platform starter kit built on **Hexagonal Architecture**, **CQRS**, and **Domain-Driven Design**. Every file earns its existence. Every pattern is explained.
