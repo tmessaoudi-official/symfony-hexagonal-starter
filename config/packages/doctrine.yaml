@@ -1,0 +1,45 @@
+doctrine:
+    dbal:
+        url: '%env(resolve:DATABASE_URL)%'
+        # Use unix_socket for local Docker setups if needed.
+        # Charset must be utf8mb4 for MySQL; utf8 is fine for PostgreSQL.
+        charset: utf8
+
+    orm:
+        auto_generate_proxy_classes: true
+        enable_lazy_ghost_objects: true
+        naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+        auto_mapping: true
+        mappings:
+            App:
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Infrastructure/Persistence/Doctrine/Entity'
+                prefix: 'App\Infrastructure\Persistence\Doctrine\Entity'
+                alias: App
+
+when@test:
+    doctrine:
+        dbal:
+            # Use the same database schema; DAMA DoctrineTestBundle wraps each test
+            # in a transaction that is rolled back after the test completes.
+            url: '%env(resolve:DATABASE_URL)%'
+
+when@prod:
+    doctrine:
+        orm:
+            auto_generate_proxy_classes: false
+            proxy_dir: '%kernel.cache_dir%/doctrine/orm/Proxies'
+            query_cache_driver:
+                type: pool
+                pool: doctrine.system_cache_pool
+            result_cache_driver:
+                type: pool
+                pool: doctrine.result_cache_pool
+
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system

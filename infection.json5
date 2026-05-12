@@ -1,0 +1,38 @@
+{
+    // Infection — mutation testing configuration.
+    // Target: Mutation Score Indicator (MSI) >= 80%.
+    // MSI = mutations killed / total mutations * 100.
+
+    "$schema": "https://infection.github.io/schema/infection-4.0.json",
+
+    "source": {
+        "directories": ["src"],
+        "excludes": [
+            "Infrastructure/Persistence/Migration",
+            "Kernel.php"
+        ]
+    },
+
+    "testFramework": "phpunit",
+    "testFrameworkOptions": "--testsuite=Unit",
+
+    "minMsi": 80,
+    "minCoveredMsi": 85,
+
+    "mutators": {
+        "@default": true,
+
+        // ─── Disable noisy mutators that produce many false positives ──────
+        "PregQuote": false,
+        "CastInt": false
+    },
+
+    "logs": {
+        "text": "build/infection/infection.log",
+        "html": "build/infection/infection.html",
+        "json": "build/infection/infection.json",
+        "perMutator": "build/infection/per-mutator.md"
+    },
+
+    "tmpDir": "build/infection/tmp"
+}

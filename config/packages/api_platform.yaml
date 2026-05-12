@@ -1,0 +1,36 @@
+api_platform:
+    title: 'Symfony Hexagonal Starter API'
+    version: '1.0.0'
+    description: |
+        Production-quality PHP/Symfony/API Platform starter following Hexagonal Architecture,
+        CQRS, and Domain-Driven Design principles.
+
+    # ─── Formats ──────────────────────────────────────────────────────────────
+    formats:
+        json:
+            mime_types: ['application/json']
+        jsonld:
+            mime_types: ['application/ld+json']
+        jsonapi:
+            mime_types: ['application/vnd.api+json']
+
+    error_formats:
+        json:
+            mime_types: ['application/json']
+        jsonproblem:
+            mime_types: ['application/problem+json']
+
+    # ─── Defaults ─────────────────────────────────────────────────────────────
+    defaults:
+        pagination_enabled: false    # We use cursor pagination, not API Platform's built-in.
+        stateless: true              # JWT-based auth; no server-side sessions.
+
+    # ─── OpenAPI ──────────────────────────────────────────────────────────────
+    swagger:
+        versions: [3]
+
+    # ─── Doctrine integration ─────────────────────────────────────────────────
+    # Disabled — we provide our own StateProviders and StateProcessors.
+    # API Platform will not generate any CRUD from Doctrine entities.
+    doctrine:
+        enabled: false

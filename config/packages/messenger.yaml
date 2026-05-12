@@ -1,0 +1,64 @@
+framework:
+    messenger:
+        # ─── Failure Transport ─────────────────────────────────────────────────
+        # Failed messages land here for inspection and manual retry.
+        failure_transport: failed
+
+        transports:
+            # ─── Async (RabbitMQ AMQP) ────────────────────────────────────────
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    exchange:
+                        name: app
+                        type: direct
+                    queues:
+                        messages: ~
+                retry_strategy:
+                    max_retries: 3
+                    delay: 1000        # initial delay in ms
+                    multiplier: 2      # exponential: 1s, 2s, 4s
+                    max_delay: 0       # no hard cap
+
+            # ─── Dead Letter Queue ─────────────────────────────────────────────
+            failed:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    exchange:
+                        name: app.failed
+                        type: direct
+                    queues:
+                        failed: ~
+
+        routing:
+            # Commands are dispatched synchronously by default.
+            # Uncomment to route commands to the async transport:
+            # 'App\Application\Command\CreateUser\CreateUserCommand': async
+
+            # Domain events are handled asynchronously.
+            'App\Domain\Event\UserCreated': async
+
+        buses:
+            # ─── Command Bus ──────────────────────────────────────────────────
+            command.bus:
+                middleware:
+                    - doctrine_transaction  # Wraps each command in a DB transaction.
+
+            # ─── Query Bus ────────────────────────────────────────────────────
+            query.bus:
+                # Queries are read-only — no transaction middleware needed.
+
+            # ─── Event Bus ────────────────────────────────────────────────────
+            event.bus:
+                default_middleware:
+                    enabled: true
+                    allow_no_handlers: true  # Events may have 0 handlers — that's fine.
+
+when@test:
+    framework:
+        messenger:
+            transports:
+                async:
+                    dsn: 'in-memory://'
+                failed:
+                    dsn: 'in-memory://'

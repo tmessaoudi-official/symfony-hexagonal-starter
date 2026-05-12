@@ -1,0 +1,125 @@
+version: '3.9'
+
+# ─── Dev compose — local development ──────────────────────────────────────────
+# Usage: make dev (which runs docker compose up -d)
+
+services:
+    # ─── PHP-FPM Application ──────────────────────────────────────────────────
+    app:
+        build:
+            context: .
+            dockerfile: docker/app/Dockerfile
+            target: dev
+        volumes:
+            - .:/app
+            - /app/var           # Exclude var/ from bind mount for performance
+            - /app/vendor        # Exclude vendor/ from bind mount for performance
+        environment:
+            APP_ENV: dev
+            APP_DEBUG: '1'
+            DATABASE_URL: 'postgresql://app:app@postgres:5432/app?serverVersion=16&charset=utf8'
+            REDIS_URL: 'redis://redis:6379'
+            MESSENGER_TRANSPORT_DSN: 'amqp://guest:guest@rabbitmq:5672/%2f/messages'
+            MAILER_DSN: 'smtp://mailpit:1025'
+            MAILER_FROM_ADDRESS: 'noreply@example.com'
+            MAILER_FROM_NAME: 'Symfony Starter'
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
+
+    # ─── Nginx ────────────────────────────────────────────────────────────────
+    nginx:
+        image: nginx:1.27-alpine
+        ports:
+            - '8080:80'
+        volumes:
+            - .:/app:ro
+            - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+        depends_on:
+            - app
+
+    # ─── PostgreSQL ───────────────────────────────────────────────────────────
+    postgres:
+        image: postgres:16-alpine
+        environment:
+            POSTGRES_DB: app
+            POSTGRES_USER: app
+            POSTGRES_PASSWORD: app
+        ports:
+            - '5432:5432'
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U app -d app']
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    # ─── Redis ────────────────────────────────────────────────────────────────
+    redis:
+        image: redis:7-alpine
+        ports:
+            - '6379:6379'
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 5s
+            timeout: 3s
+            retries: 10
+
+    # ─── RabbitMQ ─────────────────────────────────────────────────────────────
+    rabbitmq:
+        image: rabbitmq:3.13-management-alpine
+        ports:
+            - '5672:5672'
+            - '15672:15672'   # Management UI
+        environment:
+            RABBITMQ_DEFAULT_USER: guest
+            RABBITMQ_DEFAULT_PASS: guest
+        healthcheck:
+            test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+            interval: 10s
+            timeout: 5s
+            retries: 10
+
+    # ─── Mailpit (email catching) ─────────────────────────────────────────────
+    mailpit:
+        image: axllent/mailpit:latest
+        ports:
+            - '1025:1025'    # SMTP
+            - '8025:8025'    # Web UI
+
+    # ─── Adminer (DB GUI) ─────────────────────────────────────────────────────
+    adminer:
+        image: adminer:latest
+        ports:
+            - '8081:8080'
+        environment:
+            ADMINER_DEFAULT_SERVER: postgres
+
+    # ─── Messenger worker ─────────────────────────────────────────────────────
+    worker:
+        build:
+            context: .
+            dockerfile: docker/app/Dockerfile
+            target: dev
+        command: php bin/console messenger:consume async --time-limit=3600 --memory-limit=128M
+        volumes:
+            - .:/app
+        environment:
+            APP_ENV: dev
+            DATABASE_URL: 'postgresql://app:app@postgres:5432/app?serverVersion=16&charset=utf8'
+            MESSENGER_TRANSPORT_DSN: 'amqp://guest:guest@rabbitmq:5672/%2f/messages'
+            MAILER_DSN: 'smtp://mailpit:1025'
+            MAILER_FROM_ADDRESS: 'noreply@example.com'
+            MAILER_FROM_NAME: 'Symfony Starter'
+        depends_on:
+            - app
+            - rabbitmq
+        restart: unless-stopped
+
+volumes:
+    postgres_data:

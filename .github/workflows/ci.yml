@@ -1,0 +1,243 @@
+name: CI
+
+on:
+    push:
+        branches: [ main, master ]
+    pull_request:
+        branches: [ main, master ]
+
+env:
+    PHP_VERSION: '8.4'
+
+jobs:
+    # ─── Quality checks — run in parallel ─────────────────────────────────────
+    phpstan:
+        name: PHPStan (level 8)
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  coverage: none
+                  tools: composer:v2
+
+            - name: Cache Composer packages
+              uses: actions/cache@v4
+              with:
+                  path: vendor
+                  key: ${{ runner.os }}-php-${{ hashFiles('composer.lock') }}
+
+            - name: Install dependencies
+              run: composer install --prefer-dist --no-progress
+
+            - name: Warmup Symfony cache (needed for PHPStan Symfony extension)
+              run: APP_ENV=dev php bin/console cache:warmup
+              env:
+                  DATABASE_URL: 'postgresql://app:app@localhost:5432/app'
+                  APP_SECRET: test_secret
+
+            - name: Run PHPStan
+              run: vendor/bin/phpstan analyse --memory-limit=512M
+
+    cs-fixer:
+        name: PHP-CS-Fixer
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  coverage: none
+
+            - name: Install dependencies
+              run: composer install --prefer-dist --no-progress
+
+            - name: Check code style
+              run: vendor/bin/php-cs-fixer fix --allow-risky=yes --dry-run --diff
+
+    rector:
+        name: Rector (dry-run)
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  coverage: none
+
+            - name: Install dependencies
+              run: composer install --prefer-dist --no-progress
+
+            - name: Check for Rector suggestions
+              run: vendor/bin/rector process --dry-run
+
+    # ─── Unit tests (no DB needed — pure PHP) ─────────────────────────────────
+    tests-unit:
+        name: Unit Tests
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  coverage: pcov
+
+            - name: Install dependencies
+              run: composer install --prefer-dist --no-progress
+
+            - name: Run unit tests with coverage
+              run: vendor/bin/pest --testsuite=Unit --coverage-clover=build/coverage-unit.xml
+
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v4
+              with:
+                  files: build/coverage-unit.xml
+                  flags: unit
+
+    # ─── Integration tests (requires PostgreSQL) ──────────────────────────────
+    tests-integration:
+        name: Integration Tests
+        runs-on: ubuntu-latest
+        services:
+            postgres:
+                image: postgres:16-alpine
+                env:
+                    POSTGRES_DB: app_test
+                    POSTGRES_USER: app
+                    POSTGRES_PASSWORD: app
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
+
+            redis:
+                image: redis:7-alpine
+                ports:
+                    - 6379:6379
+                options: >-
+                    --health-cmd "redis-cli ping"
+                    --health-interval 5s
+                    --health-timeout 3s
+                    --health-retries 10
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  coverage: pcov
+                  extensions: pdo, pdo_pgsql
+
+            - name: Install dependencies
+              run: composer install --prefer-dist --no-progress
+
+            - name: Run database migrations
+              run: php bin/console doctrine:migrations:migrate --no-interaction
+              env:
+                  APP_ENV: test
+                  DATABASE_URL: 'postgresql://app:app@localhost:5432/app_test?serverVersion=16'
+                  REDIS_URL: 'redis://localhost:6379'
+                  MESSENGER_TRANSPORT_DSN: 'in-memory://'
+                  MAILER_DSN: 'null://null'
+                  MAILER_FROM_ADDRESS: 'test@example.com'
+                  MAILER_FROM_NAME: 'Test'
+                  APP_SECRET: test_secret
+
+            - name: Run integration tests
+              run: vendor/bin/pest --testsuite=Integration
+              env:
+                  APP_ENV: test
+                  DATABASE_URL: 'postgresql://app:app@localhost:5432/app_test?serverVersion=16'
+                  REDIS_URL: 'redis://localhost:6379'
+                  MESSENGER_TRANSPORT_DSN: 'in-memory://'
+                  MAILER_DSN: 'null://null'
+                  MAILER_FROM_ADDRESS: 'test@example.com'
+                  MAILER_FROM_NAME: 'Test'
+                  APP_SECRET: test_secret
+
+    # ─── E2E (Behat) ──────────────────────────────────────────────────────────
+    tests-e2e:
+        name: E2E Tests (Behat)
+        runs-on: ubuntu-latest
+        services:
+            postgres:
+                image: postgres:16-alpine
+                env:
+                    POSTGRES_DB: app_test
+                    POSTGRES_USER: app
+                    POSTGRES_PASSWORD: app
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  extensions: pdo, pdo_pgsql
+
+            - name: Install dependencies
+              run: composer install --prefer-dist --no-progress
+
+            - name: Run database migrations
+              run: php bin/console doctrine:migrations:migrate --no-interaction
+              env:
+                  APP_ENV: test
+                  DATABASE_URL: 'postgresql://app:app@localhost:5432/app_test?serverVersion=16'
+                  MESSENGER_TRANSPORT_DSN: 'in-memory://'
+                  MAILER_DSN: 'null://null'
+                  MAILER_FROM_ADDRESS: 'test@example.com'
+                  MAILER_FROM_NAME: 'Test'
+                  APP_SECRET: test_secret
+
+            - name: Run Behat
+              run: vendor/bin/behat
+              env:
+                  APP_ENV: test
+                  DATABASE_URL: 'postgresql://app:app@localhost:5432/app_test?serverVersion=16'
+                  MESSENGER_TRANSPORT_DSN: 'in-memory://'
+                  MAILER_DSN: 'null://null'
+                  MAILER_FROM_ADDRESS: 'test@example.com'
+                  MAILER_FROM_NAME: 'Test'
+                  APP_SECRET: test_secret
+
+    # ─── Mutation testing ─────────────────────────────────────────────────────
+    mutation:
+        name: Mutation Testing (MSI ≥ 80%)
+        runs-on: ubuntu-latest
+        needs: [ tests-unit ]   # Only run after unit tests pass.
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  coverage: pcov
+
+            - name: Install dependencies
+              run: composer install --prefer-dist --no-progress
+
+            - name: Run Infection
+              run: vendor/bin/infection --threads=4 --min-msi=80 --min-covered-msi=85

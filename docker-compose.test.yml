@@ -1,0 +1,45 @@
+version: '3.9'
+
+# ─── Test compose — used in CI (GitHub Actions / GitLab CI) ──────────────────
+# Extends the base compose but uses the 'test' build target.
+
+services:
+    app:
+        build:
+            context: .
+            dockerfile: docker/app/Dockerfile
+            target: test
+        environment:
+            APP_ENV: test
+            APP_DEBUG: '1'
+            DATABASE_URL: 'postgresql://app:app@postgres:5432/app_test?serverVersion=16&charset=utf8'
+            REDIS_URL: 'redis://redis:6379'
+            MESSENGER_TRANSPORT_DSN: 'in-memory://'
+            MAILER_DSN: 'null://null'
+            MAILER_FROM_ADDRESS: 'test@example.com'
+            MAILER_FROM_NAME: 'Test'
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+    postgres:
+        image: postgres:16-alpine
+        environment:
+            POSTGRES_DB: app_test
+            POSTGRES_USER: app
+            POSTGRES_PASSWORD: app
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U app -d app_test']
+            interval: 3s
+            timeout: 3s
+            retries: 10
+
+    redis:
+        image: redis:7-alpine
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 3s
+            timeout: 3s
+            retries: 10

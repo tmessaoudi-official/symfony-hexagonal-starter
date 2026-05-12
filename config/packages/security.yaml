@@ -1,0 +1,35 @@
+security:
+    # ─── Password Hashers ─────────────────────────────────────────────────────
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+
+    # ─── Providers ────────────────────────────────────────────────────────────
+    # In a JWT-based API, the user provider fetches the user by identifier
+    # from the token payload. Wire to your InfrastructureUser if using DB.
+    providers:
+        app_user_provider:
+            memory:
+                users: []  # Replaced by a real provider in production.
+
+    # ─── Firewalls ────────────────────────────────────────────────────────────
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        api:
+            pattern: ^/api/
+            stateless: true
+            # Uncomment when adding LexikJWT or Keycloak:
+            # jwt: ~
+
+        main:
+            lazy: true
+            provider: app_user_provider
+
+    # ─── Access Control ───────────────────────────────────────────────────────
+    access_control:
+        # Public endpoints — authentication not required for the starter.
+        # Tighten these rules when real authentication is added.
+        - { path: ^/api/docs, roles: PUBLIC_ACCESS }
+        - { path: ^/api/, roles: PUBLIC_ACCESS }

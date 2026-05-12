@@ -1,0 +1,33 @@
+includes:
+    - vendor/phpstan/extension-installer/loader.php
+    - vendor/phpstan/phpstan-symfony/extension.neon
+    - vendor/phpstan/phpstan-doctrine/extension.neon
+
+parameters:
+    # Level 8 = strictest standard level.
+    # Ensures: no unknown classes, no mixed types, full return type coverage,
+    # dead code detection, strict null checks, and more.
+    level: 8
+
+    paths:
+        - src
+        - tests
+
+    # ─── Symfony ──────────────────────────────────────────────────────────────
+    symfony:
+        containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+        # If the container XML doesn't exist yet (fresh install), generate it:
+        # bin/console cache:warmup --env=dev
+
+    # ─── Doctrine ─────────────────────────────────────────────────────────────
+    doctrine:
+        objectManagerLoader: tests/doctrine-object-manager.php
+
+    # ─── Ignores ──────────────────────────────────────────────────────────────
+    ignoreErrors:
+        # API Platform ProcessorInterface signature uses mixed intentionally.
+        - message: '#Parameter \$data of method .* has no type hint#'
+          path: src/Infrastructure/Http/StateProcessor
+
+    # ─── Type extensions ──────────────────────────────────────────────────────
+    treatPhpDocTypesAsCertain: false

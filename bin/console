@@ -1,0 +1,37 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Symfony Console entrypoint.
+ *
+ * WHY this exists:
+ * The `bin/console` script is the standard Symfony CLI entry point. It is used by:
+ *   - Makefile targets (db-migrate, worker, cache:clear, etc.)
+ *   - Doctrine Migrations (`bin/console doctrine:migrations:migrate`)
+ *   - Messenger workers (`bin/console messenger:consume async`)
+ *   - All other Symfony commands
+ *
+ * It boots the Kernel and hands control to the Console Application.
+ */
+
+use App\Kernel;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+
+if (!is_file(dirname(__DIR__) . '/vendor/autoload_runtime.php')) {
+    throw new LogicException(
+        'Symfony Runtime is missing. ' .
+        'Try running "composer require symfony/runtime" or "composer install".'
+    );
+}
+
+$_SERVER['APP_RUNTIME_OPTIONS'] ??= [];
+
+require_once dirname(__DIR__) . '/vendor/autoload_runtime.php';
+
+return function (array $context): Application {
+    $kernel = new Kernel($context['APP_ENV'], (bool) $context['APP_DEBUG']);
+
+    return new Application($kernel);
+};

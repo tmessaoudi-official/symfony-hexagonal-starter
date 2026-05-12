@@ -1,0 +1,44 @@
+###> symfony/framework-bundle ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.pem
+/public/bundles/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+
+###> phpunit/phpunit ###
+/phpunit.xml
+.phpunit.cache/
+###< phpunit/phpunit ###
+
+###> PHP CS Fixer ###
+/.php-cs-fixer.cache
+###< PHP CS Fixer ###
+
+###> Rector ###
+/rector.cache
+###< Rector ###
+
+###> PHPStan ###
+/.phpstan.cache
+###< PHPStan ###
+
+###> Build artifacts ###
+/build/
+###< Build artifacts ###
+
+###> Docker ###
+.env.local
+###< Docker ###
+
+###> macOS ###
+.DS_Store
+###< macOS ###
+
+###> IDE ###
+.idea/
+.vscode/
+*.sw?
+###< IDE ###

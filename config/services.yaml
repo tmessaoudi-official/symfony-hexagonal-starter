@@ -1,0 +1,54 @@
+parameters:
+    app.from_email: '%env(MAILER_FROM_ADDRESS)%'
+    app.from_name: '%env(MAILER_FROM_NAME)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+        bind:
+            # Named bus injection — three buses exist, inject the right one by argument name.
+            # WHY: Symfony cannot auto-wire by type alone when multiple services share the same
+            # interface (MessageBusInterface). Named bindings disambiguate without polluting
+            # the constructor signatures with service IDs.
+            Symfony\Component\Messenger\MessageBusInterface $commandBus: '@command.bus'
+            Symfony\Component\Messenger\MessageBusInterface $queryBus: '@query.bus'
+            Symfony\Component\Messenger\MessageBusInterface $eventBus: '@event.bus'
+
+    # ─── Application Layer ────────────────────────────────────────────────────
+    App\Application\:
+        resource: '../src/Application/'
+        exclude:
+            - '../src/Application/DTO/'
+
+    # ─── Domain Layer ─────────────────────────────────────────────────────────
+    # Domain services are registered here. Repositories are interfaces;
+    # implementations are in Infrastructure and bound below.
+
+    # ─── Infrastructure Layer ─────────────────────────────────────────────────
+    App\Infrastructure\:
+        resource: '../src/Infrastructure/'
+
+    # ─── Port Bindings (Dependency Inversion) ─────────────────────────────────
+    # Tell Symfony which concrete class satisfies each port interface.
+
+    App\Domain\Repository\UserRepository:
+        alias: App\Infrastructure\Persistence\Doctrine\Repository\DoctrineUserRepository
+
+    App\Application\Port\Mailer:
+        alias: App\Infrastructure\Messaging\SymfonyMailerAdapter
+
+    # ─── Explicit Constructor Args ─────────────────────────────────────────────
+    App\Infrastructure\Messaging\SymfonyMailerAdapter:
+        arguments:
+            $fromAddress: '%app.from_email%'
+            $fromName: '%app.from_name%'
+
+    # ─── Command/Query Bus Routing ─────────────────────────────────────────────
+    # Handlers are auto-configured by Messenger via #[AsMessageHandler].
+    # See config/packages/messenger.yaml for bus definitions.
+
+    # ─── API Platform State Services ──────────────────────────────────────────
+    # StateProcessors and StateProviders are auto-configured via DI tags.
+    # No explicit registration needed when autoconfigure: true is set.
