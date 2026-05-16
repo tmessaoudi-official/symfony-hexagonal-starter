@@ -10,7 +10,7 @@
 ## Getting started
 
 ```bash
-git clone https://github.com/takieddine-messaoudi/symfony-hexagonal-starter
+git clone https://github.com/tmessaoudi-official/symfony-hexagonal-starter
 cd symfony-hexagonal-starter
 make setup   # builds containers, installs deps, runs migrations
 make dev     # starts all services
