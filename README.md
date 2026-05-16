@@ -109,7 +109,7 @@ The actual data returned by GET is `UserOutput` (a readonly DTO). The data accep
 
 ## Adding a New Feature
 
-Use `/make-feature FeatureName` in Claude Code for full scaffolding. Manual steps:
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full feature scaffold guide. Manual steps:
 
 **Order matters** — build inward-to-outward:
 
