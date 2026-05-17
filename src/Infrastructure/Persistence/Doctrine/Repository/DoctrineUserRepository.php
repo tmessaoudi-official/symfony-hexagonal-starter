@@ -8,6 +8,7 @@ use App\Domain\Exception\UserNotFoundException;
 use App\Domain\Model\Email;
 use App\Domain\Model\User;
 use App\Domain\Model\UserId;
+use App\Domain\Model\UserRole;
 use App\Domain\Repository\UserRepository;
 use App\Infrastructure\Persistence\Doctrine\Entity\UserEntity;
 use Doctrine\ORM\EntityManagerInterface;
@@ -133,5 +134,17 @@ final class DoctrineUserRepository implements UserRepository
             $this->em->remove($entity);
             $this->em->flush();
         }
+    }
+
+    public function countByRole(UserRole $role): int
+    {
+        return (int) $this->em
+            ->createQueryBuilder()
+            ->select('COUNT(u.id)')
+            ->from(UserEntity::class, 'u')
+            ->where('u.role = :role')
+            ->setParameter('role', $role)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 }

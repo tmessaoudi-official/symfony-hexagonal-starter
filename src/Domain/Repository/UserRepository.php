@@ -7,6 +7,7 @@ namespace App\Domain\Repository;
 use App\Domain\Model\Email;
 use App\Domain\Model\User;
 use App\Domain\Model\UserId;
+use App\Domain\Model\UserRole;
 
 /**
  * UserRepository Port (outbound).
@@ -47,4 +48,6 @@ interface UserRepository
     public function findPage(int $limit, ?UserId $cursor = null): array;
 
     public function delete(User $user): void;
+
+    public function countByRole(UserRole $role): int;
 }

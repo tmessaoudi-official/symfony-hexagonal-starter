@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Factory;
 
+use App\Domain\Model\UserRole;
 use App\Domain\Model\UserStatus;
 use App\Infrastructure\Persistence\Doctrine\Entity\UserEntity;
 use DateTimeImmutable;
@@ -48,6 +49,7 @@ final class UserFactory extends PersistentProxyObjectFactory
             'email'     => sprintf('user-%s@example.com', substr(md5($unique), 0, 12)),
             'name'      => sprintf('User %s', substr($unique, 0, 6)),
             'status'    => UserStatus::Active,
+            'role'      => UserRole::Regular,
             'createdAt' => $now,
             'updatedAt' => $now,
         ];

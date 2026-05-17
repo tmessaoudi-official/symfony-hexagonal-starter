@@ -9,6 +9,7 @@ use App\Domain\Model\Email;
 use App\Domain\Model\User;
 use App\Domain\Model\UserId;
 use App\Domain\Model\UserName;
+use App\Domain\Model\UserRole;
 use App\Domain\Model\UserStatus;
 use App\Domain\Repository\UserRepository;
 use DateTimeImmutable;
@@ -34,6 +35,7 @@ describe('ListUsersQueryHandler (Unit)', function (): void {
                 email: Email::fromString("user{$emailSeed}@example.com"),
                 name: UserName::fromString("User {$emailSeed}"),
                 status: UserStatus::Active,
+                role: UserRole::Regular,
                 createdAt: new DateTimeImmutable(),
                 updatedAt: new DateTimeImmutable(),
             );

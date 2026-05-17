@@ -42,6 +42,9 @@ class UserEntity
     #[ORM\Column(type: 'string', length: 20, enumType: \App\Domain\Model\UserStatus::class)]
     private \App\Domain\Model\UserStatus $status;
 
+    #[ORM\Column(type: 'string', length: 20, enumType: \App\Domain\Model\UserRole::class, options: ['default' => 'regular'])]
+    private \App\Domain\Model\UserRole $role = \App\Domain\Model\UserRole::Regular;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private DateTimeImmutable $createdAt;
 
@@ -54,6 +57,7 @@ class UserEntity
         string $email,
         string $name,
         \App\Domain\Model\UserStatus $status,
+        \App\Domain\Model\UserRole $role,
         DateTimeImmutable $createdAt,
         DateTimeImmutable $updatedAt,
     ) {
@@ -61,6 +65,7 @@ class UserEntity
         $this->email     = $email;
         $this->name      = $name;
         $this->status    = $status;
+        $this->role      = $role;
         $this->createdAt = $createdAt;
         $this->updatedAt = $updatedAt;
     }
@@ -98,6 +103,16 @@ class UserEntity
     public function setStatus(\App\Domain\Model\UserStatus $status): void
     {
         $this->status = $status;
+    }
+
+    public function getRole(): \App\Domain\Model\UserRole
+    {
+        return $this->role;
+    }
+
+    public function setRole(\App\Domain\Model\UserRole $role): void
+    {
+        $this->role = $role;
     }
 
     public function getCreatedAt(): DateTimeImmutable

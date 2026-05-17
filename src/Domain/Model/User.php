@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Model;
 
 use App\Domain\Event\UserCreated;
+use App\Domain\Event\UserPromoted;
 use DateTimeImmutable;
 
 /**
@@ -37,6 +38,7 @@ final class User
         private Email $email,
         private UserName $name,
         private UserStatus $status,
+        private UserRole $role,
         private readonly DateTimeImmutable $createdAt,
         private DateTimeImmutable $updatedAt,
     ) {}
@@ -45,6 +47,7 @@ final class User
         UserId $id,
         Email $email,
         UserName $name,
+        UserRole $role = UserRole::Regular,
     ): self {
         $now = new DateTimeImmutable();
 
@@ -53,6 +56,7 @@ final class User
             email: $email,
             name: $name,
             status: UserStatus::Active,
+            role: $role,
             createdAt: $now,
             updatedAt: $now,
         );
@@ -74,10 +78,19 @@ final class User
         Email $email,
         UserName $name,
         UserStatus $status,
+        UserRole $role,
         DateTimeImmutable $createdAt,
         DateTimeImmutable $updatedAt,
     ): self {
-        return new self($id, $email, $name, $status, $createdAt, $updatedAt);
+        return new self(
+            id: $id,
+            email: $email,
+            name: $name,
+            status: $status,
+            role: $role,
+            createdAt: $createdAt,
+            updatedAt: $updatedAt,
+        );
     }
 
     public function rename(UserName $name): void
@@ -104,6 +117,15 @@ final class User
         $this->updatedAt = new DateTimeImmutable();
     }
 
+    public function promote(UserRole $newRole): void
+    {
+        $previousRole   = $this->role;
+        $this->role     = $newRole;
+        $this->updatedAt = new DateTimeImmutable();
+
+        $this->record(new UserPromoted($this->id, $previousRole, $newRole));
+    }
+
     // ─── Accessors ───────────────────────────────────────────────────────────
 
     public function id(): UserId
@@ -124,6 +146,11 @@ final class User
     public function status(): UserStatus
     {
         return $this->status;
+    }
+
+    public function role(): UserRole
+    {
+        return $this->role;
     }
 
     public function createdAt(): DateTimeImmutable

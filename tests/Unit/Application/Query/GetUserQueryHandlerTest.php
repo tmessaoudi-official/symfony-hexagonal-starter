@@ -10,6 +10,7 @@ use App\Domain\Model\Email;
 use App\Domain\Model\User;
 use App\Domain\Model\UserId;
 use App\Domain\Model\UserName;
+use App\Domain\Model\UserRole;
 use App\Domain\Model\UserStatus;
 use App\Domain\Repository\UserRepository;
 use DateTimeImmutable;
@@ -38,6 +39,7 @@ describe('GetUserQueryHandler (Unit)', function (): void {
             email: Email::fromString('alice@example.com'),
             name: UserName::fromString('Alice Smith'),
             status: UserStatus::Active,
+            role: UserRole::Regular,
             createdAt: $createdAt,
             updatedAt: $updatedAt,
         );
@@ -78,6 +80,7 @@ describe('GetUserQueryHandler (Unit)', function (): void {
             email: Email::fromString('inactive@example.com'),
             name: UserName::fromString('Inactive User'),
             status: UserStatus::Inactive,
+            role: UserRole::Regular,
             createdAt: $now,
             updatedAt: $now,
         );

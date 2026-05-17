@@ -7,6 +7,7 @@ use App\Domain\Model\Email;
 use App\Domain\Model\User;
 use App\Domain\Model\UserId;
 use App\Domain\Model\UserName;
+use App\Domain\Model\UserRole;
 use App\Domain\Model\UserStatus;
 use DateTimeImmutable;
 
@@ -41,6 +42,7 @@ describe('User Aggregate', function (): void {
             email: Email::fromString('a@b.com'),
             name: UserName::fromString('AB'),
             status: UserStatus::Active,
+            role: UserRole::Regular,
             createdAt: new DateTimeImmutable(),
             updatedAt: new DateTimeImmutable(),
         );

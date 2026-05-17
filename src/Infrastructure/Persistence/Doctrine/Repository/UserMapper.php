@@ -32,6 +32,7 @@ final class UserMapper
             email: $user->email()->value(),
             name: $user->name()->value(),
             status: $user->status(),
+            role: $user->role(),
             createdAt: $user->createdAt(),
             updatedAt: $user->updatedAt(),
         );
@@ -42,6 +43,7 @@ final class UserMapper
         $entity->setEmail($user->email()->value());
         $entity->setName($user->name()->value());
         $entity->setStatus($user->status());
+        $entity->setRole($user->role());
         $entity->setUpdatedAt($user->updatedAt());
     }
 
@@ -52,6 +54,7 @@ final class UserMapper
             email: Email::fromString($entity->getEmail()),
             name: UserName::fromString($entity->getName()),
             status: $entity->getStatus(),
+            role: $entity->getRole(),
             createdAt: $entity->getCreatedAt(),
             updatedAt: $entity->getUpdatedAt(),
         );
