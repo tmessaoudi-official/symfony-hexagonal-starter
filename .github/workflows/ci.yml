@@ -98,7 +98,7 @@ jobs:
               run: vendor/bin/pest --testsuite=Unit --coverage-clover=build/coverage-unit.xml
 
             - name: Upload coverage to Codecov
-              uses: codecov/codecov-action@v4
+              uses: codecov/codecov-action@v7
               with:
                   files: build/coverage-unit.xml
                   flags: unit
