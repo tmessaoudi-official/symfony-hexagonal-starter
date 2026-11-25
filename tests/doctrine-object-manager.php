@@ -16,11 +16,19 @@ declare(strict_types=1);
  * The bootstrap creates a minimal "test" kernel, warms up just enough to get the
  * EntityManager from the DI container, and returns it. PHPStan calls this file once
  * per analysis run.
+ *
+ * It loads .env itself, like bin/console and tests/bootstrap.php: PHPStan does not, so without
+ * this line the kernel only sees the shell environment, and a plain `vendor/bin/phpstan analyse`
+ * outside the compose stack (CI, a fresh clone) stops on `Environment variable not found:
+ * "DATABASE_URL"`. No connection is opened: the URL pins serverVersion.
  */
 
 use App\Kernel;
+use Symfony\Component\Dotenv\Dotenv;
 
 require_once __DIR__.'/../vendor/autoload.php';
+
+new Dotenv()->bootEnv(__DIR__.'/../.env');
 
 $kernel = new Kernel('test', true);
 $kernel->boot();
