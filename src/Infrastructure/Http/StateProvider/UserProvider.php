@@ -14,6 +14,8 @@ use App\Application\Query\GetUser\GetUserQueryHandler;
 use App\Application\Query\ListUsers\ListUsersQuery;
 use App\Application\Query\ListUsers\ListUsersQueryHandler;
 use App\Domain\Exception\UserNotFoundException;
+use App\Domain\Model\UserId;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -25,12 +27,13 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  *
  * @implements ProviderInterface<UserOutput|UserListOutput>
  */
-final class UserProvider implements ProviderInterface
+final readonly class UserProvider implements ProviderInterface
 {
     public function __construct(
-        private readonly GetUserQueryHandler $getUserHandler,
-        private readonly ListUsersQueryHandler $listUsersHandler,
-    ) {}
+        private GetUserQueryHandler $getUserHandler,
+        private ListUsersQueryHandler $listUsersHandler,
+    ) {
+    }
 
     public function provide(Operation $operation, array $uriVariables = [], array $context = []): UserOutput|UserListOutput
     {
@@ -41,6 +44,7 @@ final class UserProvider implements ProviderInterface
         return $this->provideItem($uriVariables);
     }
 
+    /** @param array<string, mixed> $uriVariables */
     private function provideItem(array $uriVariables): UserOutput
     {
         $id = (string) ($uriVariables['id'] ?? '');
@@ -54,11 +58,28 @@ final class UserProvider implements ProviderInterface
         }
     }
 
+    /** @param array<string, mixed> $context */
     private function provideCollection(array $context): UserListOutput
     {
         $filters = $context['filters'] ?? [];
-        $limit   = isset($filters['limit']) ? (int) $filters['limit'] : 20;
-        $cursor  = isset($filters['after']) && $filters['after'] !== '' ? (string) $filters['after'] : null;
+        $limit = isset($filters['limit']) ? (int) $filters['limit'] : 20;
+        $after = $filters['after'] ?? '';
+
+        // The cursor is a user id: ask the value object here, at the boundary, so a malformed one
+        // (including ?after[]=x, which arrives as an array) is the client's 400 instead of a 500
+        // from inside the handler.
+        if (!is_string($after)) {
+            throw new BadRequestHttpException('Invalid "after" cursor: expected a user id.');
+        }
+
+        $cursor = $after !== '' ? $after : null;
+        if ($cursor !== null) {
+            try {
+                UserId::fromString($cursor);
+            } catch (\InvalidArgumentException $e) {
+                throw new BadRequestHttpException('Invalid "after" cursor: expected a user id.', $e);
+            }
+        }
 
         return ($this->listUsersHandler)(new ListUsersQuery(
             limit: max(1, min(100, $limit)),

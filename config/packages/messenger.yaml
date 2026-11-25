@@ -38,6 +38,9 @@ framework:
             # Domain events are handled asynchronously.
             'App\Domain\Event\UserCreated': async
 
+        # Three buses are declared, so Symfony needs to know which one a plain MessageBusInterface gets.
+        default_bus: command.bus
+
         buses:
             # ─── Command Bus ──────────────────────────────────────────────────
             command.bus:

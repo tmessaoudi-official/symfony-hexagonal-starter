@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domain\Exception;
 
 use App\Domain\Model\UserId;
-use RuntimeException;
 
 /**
  * Thrown when a User aggregate cannot be found by its identifier.
@@ -16,7 +15,7 @@ use RuntimeException;
  * - HTTP adapters catch THIS exception and decide what HTTP status to return (404).
  *   The domain doesn't know about HTTP.
  */
-final class UserNotFoundException extends RuntimeException
+final class UserNotFoundException extends \RuntimeException
 {
     private function __construct(string $message)
     {

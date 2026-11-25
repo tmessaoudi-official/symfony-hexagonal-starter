@@ -8,8 +8,9 @@ namespace App\Domain\Model;
  * UserStatus Enum.
  *
  * WHY an enum over a string constant?
- * - PHP 8.4 backed enum: serialises to the string value for DB storage, never a raw magic string.
- * - Exhaustive match: the compiler tells you when you forget a case.
+ * - Backed enum (PHP 8.1+): stored as its string value, never a raw magic string in the code.
+ * - Exhaustive match: PHPStan reports a match that forgets a case; at runtime PHP throws
+ *   UnhandledMatchError instead of silently falling through.
  * - Self-documenting: User::$status is a UserStatus, not an opaque string.
  *
  * WHY not more statuses?
@@ -29,7 +30,7 @@ enum UserStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Active   => 'Active',
+            self::Active => 'Active',
             self::Inactive => 'Inactive',
         };
     }

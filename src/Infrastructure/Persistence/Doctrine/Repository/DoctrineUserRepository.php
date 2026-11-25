@@ -12,7 +12,6 @@ use App\Domain\Model\UserRole;
 use App\Domain\Repository\UserRepository;
 use App\Infrastructure\Persistence\Doctrine\Entity\UserEntity;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Exception\NoResultException;
 
 /**
  * DoctrineUserRepository — the Doctrine implementation of UserRepository.
@@ -25,12 +24,13 @@ use Doctrine\ORM\Exception\NoResultException;
  *
  * Implements cursor pagination — see docs/patterns/cursor-pagination.md.
  */
-final class DoctrineUserRepository implements UserRepository
+final readonly class DoctrineUserRepository implements UserRepository
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly UserMapper $mapper,
-    ) {}
+        private EntityManagerInterface $em,
+        private UserMapper $mapper,
+    ) {
+    }
 
     public function save(User $user): void
     {
@@ -74,19 +74,16 @@ final class DoctrineUserRepository implements UserRepository
 
     public function existsByEmail(Email $email): bool
     {
-        try {
-            $count = (int) $this->em->createQueryBuilder()
-                ->select('COUNT(u.id)')
-                ->from(UserEntity::class, 'u')
-                ->where('u.email = :email')
-                ->setParameter('email', $email->value())
-                ->getQuery()
-                ->getSingleScalarResult();
+        // COUNT always returns exactly one row, so getSingleScalarResult() cannot throw NoResultException.
+        $count = (int) $this->em->createQueryBuilder()
+            ->select('COUNT(u.id)')
+            ->from(UserEntity::class, 'u')
+            ->where('u.email = :email')
+            ->setParameter('email', $email->value())
+            ->getQuery()
+            ->getSingleScalarResult();
 
-            return $count > 0;
-        } catch (NoResultException) {
-            return false;
-        }
+        return $count > 0;
     }
 
     /**
@@ -112,10 +109,10 @@ final class DoctrineUserRepository implements UserRepository
         $qb = $this->em->createQueryBuilder()
             ->select('u')
             ->from(UserEntity::class, 'u')
-            ->orderBy('u.id', 'ASC')
+            ->orderBy('u.id', \SortDirection::Ascending) // PHP 8.6 native enum; strings are deprecated in ORM 3
             ->setMaxResults($limit);
 
-        if ($cursor !== null) {
+        if ($cursor instanceof UserId) {
             $qb->where('u.id > :cursor')
                ->setParameter('cursor', $cursor->value());
         }

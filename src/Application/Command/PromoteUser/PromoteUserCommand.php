@@ -7,7 +7,8 @@ namespace App\Application\Command\PromoteUser;
 final readonly class PromoteUserCommand
 {
     public function __construct(
-        public readonly string $userId,
-        public readonly string $targetRole,
-    ) {}
+        public string $userId,
+        public string $targetRole,
+    ) {
+    }
 }

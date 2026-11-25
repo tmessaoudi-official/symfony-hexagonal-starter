@@ -2,70 +2,129 @@
 
 declare(strict_types=1);
 
+namespace App\Tests\Unit\Domain\ValueObject;
+
 use App\Domain\Model\Email;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 
-describe('Email Value Object', function (): void {
-    it('creates a valid email and normalises to lowercase', function (): void {
-        $email = Email::fromString('User@EXAMPLE.COM');
-        expect($email->value())->toBe('user@example.com');
-    });
+/**
+ * Domain tests are plain PHPUnit classes (not Pest closures) on purpose: Infection, which gates
+ * mutation testing for src/Domain, can only drive PHPUnit test classes. Pest runs them as-is.
+ * See docs/testing.md ("Mutation testing: two tools, one per layer").
+ */
+final class EmailTest extends TestCase
+{
+    #[Test]
+    public function itCreatesAValidEmailAndNormalisesToLowercase(): void
+    {
+        self::assertSame('user@example.com', Email::fromString('User@EXAMPLE.COM')->value());
+    }
 
-    it('extracts the domain part', function (): void {
-        $email = Email::fromString('alice@example.org');
-        expect($email->domain())->toBe('example.org');
-    });
+    #[Test]
+    public function itTrimsSurroundingWhitespace(): void
+    {
+        self::assertSame('user@example.com', Email::fromString('  user@example.com  ')->value());
+    }
 
-    it('considers two emails with the same value equal', function (): void {
-        $a = Email::fromString('alice@example.com');
-        $b = Email::fromString('Alice@EXAMPLE.COM');
-        expect($a->equals($b))->toBeTrue();
-    });
+    #[Test]
+    public function itExtractsTheDomainPart(): void
+    {
+        self::assertSame('example.org', Email::fromString('alice@example.org')->domain());
+    }
 
-    it('considers two emails with different values unequal', function (): void {
-        $a = Email::fromString('alice@example.com');
-        $b = Email::fromString('bob@example.com');
-        expect($a->equals($b))->toBeFalse();
-    });
+    #[Test]
+    public function itConsidersTwoEmailsWithTheSameValueEqual(): void
+    {
+        self::assertTrue(Email::fromString('alice@example.com')->equals(Email::fromString('Alice@EXAMPLE.COM')));
+    }
 
-    it('throws on an empty string', function (): void {
+    #[Test]
+    public function itConsidersTwoEmailsWithDifferentValuesUnequal(): void
+    {
+        self::assertFalse(Email::fromString('alice@example.com')->equals(Email::fromString('bob@example.com')));
+    }
+
+    #[Test]
+    public function itThrowsOnAnEmptyString(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains('cannot be empty');
+
         Email::fromString('');
-    })->throws(InvalidArgumentException::class, 'cannot be empty');
+    }
 
-    it('throws on a string without @', function (): void {
+    #[Test]
+    public function itThrowsOnAStringWithoutAt(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains('not a valid email');
+
         Email::fromString('notanemail');
-    })->throws(InvalidArgumentException::class, 'not a valid email');
+    }
 
-    it('throws on an email exceeding 254 characters', function (): void {
-        $local  = str_repeat('a', 243);
-        Email::fromString($local . '@example.com'); // 255 chars
-    })->throws(InvalidArgumentException::class, 'maximum length');
+    #[Test]
+    public function itAcceptsAnEmailOfExactly254Characters(): void
+    {
+        // Boundary of the length rule (RFC 5321). Found by mutation testing: without this
+        // test, changing "> 254" to ">= 254" in Email went unnoticed.
+        $email = str_repeat('a', 64).'@'.str_repeat('b', 63).'.'.str_repeat('c', 63).'.'.str_repeat('d', 57).'.com';
 
-    it('casts to string', function (): void {
-        $email = Email::fromString('alice@example.com');
-        expect((string) $email)->toBe('alice@example.com');
-    });
+        self::assertSame(254, strlen($email));
+        self::assertSame($email, Email::fromString($email)->value());
+    }
 
-    // ─── Additional edge-case coverage ──────────────────────────────────────
+    #[Test]
+    public function itThrowsOnAnEmailExceeding254Characters(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains('maximum length');
 
-    it('accepts plus-tagged email addresses', function (): void {
-        $email = Email::fromString('user+tag@domain.co.uk');
-        expect($email->value())->toBe('user+tag@domain.co.uk');
-    });
+        Email::fromString(str_repeat('a', 243).'@example.com'); // 255 chars
+    }
 
-    it('accepts dotted local-part with subdomain', function (): void {
-        $email = Email::fromString('user.name@sub.domain.org');
-        expect($email->value())->toBe('user.name@sub.domain.org');
-    });
+    #[Test]
+    public function itCastsToString(): void
+    {
+        self::assertSame('alice@example.com', (string) Email::fromString('alice@example.com'));
+    }
 
-    it('throws on an email with no domain after @', function (): void {
+    #[Test]
+    public function itAcceptsPlusTaggedEmailAddresses(): void
+    {
+        self::assertSame('user+tag@domain.co.uk', Email::fromString('user+tag@domain.co.uk')->value());
+    }
+
+    #[Test]
+    public function itAcceptsADottedLocalPartWithSubdomain(): void
+    {
+        self::assertSame('user.name@sub.domain.org', Email::fromString('user.name@sub.domain.org')->value());
+    }
+
+    #[Test]
+    public function itThrowsOnAnEmailWithNoDomainAfterAt(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains('not a valid email');
+
         Email::fromString('user@');
-    })->throws(InvalidArgumentException::class, 'not a valid email');
+    }
 
-    it('throws on an email with spaces', function (): void {
+    #[Test]
+    public function itThrowsOnAnEmailWithSpaces(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains('not a valid email');
+
         Email::fromString('user @example.com');
-    })->throws(InvalidArgumentException::class, 'not a valid email');
+    }
 
-    it('throws on an email with double @ sign', function (): void {
+    #[Test]
+    public function itThrowsOnAnEmailWithDoubleAtSign(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains('not a valid email');
+
         Email::fromString('user@@example.com');
-    })->throws(InvalidArgumentException::class, 'not a valid email');
-});
+    }
+}

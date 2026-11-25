@@ -29,12 +29,13 @@ use Symfony\Component\Messenger\MessageBusInterface;
  * - If Messenger is swapped for a different bus tomorrow, only this handler changes.
  */
 #[AsMessageHandler(bus: 'command.bus')]
-final class CreateUserCommandHandler
+final readonly class CreateUserCommandHandler
 {
     public function __construct(
-        private readonly UserRepository $users,
-        private readonly MessageBusInterface $eventBus,
-    ) {}
+        private UserRepository $users,
+        private MessageBusInterface $eventBus,
+    ) {
+    }
 
     public function __invoke(CreateUserCommand $command): void
     {

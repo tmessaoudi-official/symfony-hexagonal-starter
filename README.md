@@ -1,8 +1,8 @@
 # Symfony Hexagonal Starter
 
-[![PHP](https://img.shields.io/badge/PHP-8.4-blue.svg)](https://php.net)
-[![Symfony](https://img.shields.io/badge/Symfony-7.1-green.svg)](https://symfony.com)
-[![API Platform](https://img.shields.io/badge/API_Platform-4.0-orange.svg)](https://api-platform.com)
+[![PHP](https://img.shields.io/badge/PHP-8.5-blue.svg)](https://php.net)
+[![Symfony](https://img.shields.io/badge/Symfony-8.1-green.svg)](https://symfony.com)
+[![API Platform](https://img.shields.io/badge/API_Platform-5-orange.svg)](https://api-platform.com)
 [![PHPStan](https://img.shields.io/badge/PHPStan-Level_8-brightgreen.svg)](https://phpstan.org)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)
 
@@ -180,6 +180,13 @@ See [n-plus-one.md](docs/patterns/n-plus-one.md).
 | Adminer | http://localhost:8081 | PostgreSQL UI |
 | RabbitMQ UI | http://localhost:15672 | guest/guest |
 
+**Upgrading an existing dev database.** The stack runs PostgreSQL 19. Since PostgreSQL 18 the
+official image keeps its data in `/var/lib/postgresql/<major>/docker`, so the `postgres_data`
+volume is mounted at `/var/lib/postgresql`. A volume created by an older version of this
+starter (mounted at `.../data`, older major version) is not reused: the container exits. Dump
+first (`docker compose exec postgres pg_dump -U app app > dump.sql`), remove the old volume,
+start the stack, then restore the dump. A fresh clone needs none of this.
+
 ---
 
 ## Development Commands
@@ -190,9 +197,10 @@ make test-unit     # Domain tests (no DB, ~0.5s)
 make analyze       # PHPStan level 8
 make cs-fix        # Fix code style
 make rector        # Apply Rector refactoring
-make mutation      # Infection mutation testing (MSI target: 80%)
+make mutation      # Mutation testing: Infection on Domain, Pest on Application (docs/testing.md)
 make coverage      # HTML coverage report → build/coverage/
 make db-migrate    # Run pending migrations
+make db-test       # Create + migrate app_test (the test targets run it for you)
 make db-reset      # Destroy and recreate DB (dev only)
 make worker        # Start Messenger worker in foreground
 ```

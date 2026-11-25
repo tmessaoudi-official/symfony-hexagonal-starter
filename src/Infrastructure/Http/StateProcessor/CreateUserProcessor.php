@@ -11,8 +11,10 @@ use App\Application\DTO\Input\CreateUserInput;
 use App\Application\DTO\Output\UserOutput;
 use App\Domain\Exception\UserAlreadyExistsException;
 use App\Domain\Model\Email;
+use App\Domain\Model\User;
 use App\Domain\Repository\UserRepository;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
@@ -35,31 +37,40 @@ use Symfony\Component\Messenger\MessageBusInterface;
  *
  * @implements ProcessorInterface<CreateUserInput, UserOutput>
  */
-final class CreateUserProcessor implements ProcessorInterface
+final readonly class CreateUserProcessor implements ProcessorInterface
 {
     public function __construct(
-        private readonly MessageBusInterface $commandBus,
-        private readonly UserRepository $users,
-    ) {}
+        private MessageBusInterface $commandBus,
+        private UserRepository $users,
+    ) {
+    }
 
     public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): UserOutput
     {
-        assert($data instanceof CreateUserInput);
-
         try {
             $this->commandBus->dispatch(new CreateUserCommand(
                 email: $data->email,
                 name: $data->name,
             ));
-        } catch (UserAlreadyExistsException $e) {
-            throw new ConflictHttpException($e->getMessage(), $e);
+        } catch (HandlerFailedException $e) {
+            // Messenger wraps every handler exception in HandlerFailedException, so the
+            // domain exception has to be unwrapped before it can be mapped to HTTP 409.
+            // The array is keyed by handler name (not 0..n), hence array_first(). Pass
+            // recursive: true only if a handler starts dispatching messages before it throws:
+            // a failure in that nested dispatch arrives wrapped twice.
+            $conflict = array_first($e->getWrappedExceptions(UserAlreadyExistsException::class));
+            if (null !== $conflict) {
+                throw new ConflictHttpException($conflict->getMessage(), $conflict);
+            }
+
+            throw $e;
         }
 
         // After a successful create, fetch the user to return it in the response.
         // The command handler generates the ID internally — we look up by email.
         $user = $this->users->findByEmail(Email::fromString($data->email));
 
-        if ($user === null) {
+        if (!$user instanceof User) {
             // This should never happen unless there is a race condition between save and fetch.
             throw new \RuntimeException('User was saved but could not be retrieved.');
         }

@@ -10,8 +10,9 @@ use App\Domain\Model\UserRole;
 final readonly class UserPromoted
 {
     public function __construct(
-        public readonly UserId   $userId,
-        public readonly UserRole $previousRole,
-        public readonly UserRole $newRole,
-    ) {}
+        public UserId $userId,
+        public UserRole $previousRole,
+        public UserRole $newRole,
+    ) {
+    }
 }

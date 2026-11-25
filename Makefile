@@ -1,11 +1,20 @@
-.PHONY: setup dev down shell logs test test-unit test-integration test-e2e \
+.PHONY: setup dev down shell logs test test-unit test-integration test-functional test-e2e \
         lint cs-fix cs-check analyze rector-dry rector mutation coverage \
-        db-migrate db-fixtures db-reset worker
+        db-migrate db-reset db-test worker
 
 # ─── Variables ────────────────────────────────────────────────────────────────
 DC      := docker compose
 APP     := $(DC) exec app
 CONSOLE := $(APP) php bin/console
+
+# Test runs override the dev container's environment. Compose exports APP_ENV=dev and the dev
+# DATABASE_URL as real environment variables, and KernelTestCase reads $_ENV before the APP_ENV
+# that phpunit.xml.dist forces into $_SERVER: without these, the suites boot the dev kernel
+# against the dev database. Values match docker-compose.test.yml.
+TEST_ENV := -e APP_ENV=test \
+            -e 'DATABASE_URL=postgresql://app:app@postgres:5432/app_test?serverVersion=19&charset=utf8' \
+            -e MESSENGER_TRANSPORT_DSN=in-memory:// -e MAILER_DSN=null://null
+APP_TEST := $(DC) exec $(TEST_ENV) app
 
 # ─── Setup & Start ────────────────────────────────────────────────────────────
 
@@ -39,29 +48,38 @@ logs:
 
 # ─── Testing ──────────────────────────────────────────────────────────────────
 
-## test: Run all test suites (unit + integration)
-test:
-	$(APP) vendor/bin/pest
+## db-test: Create and migrate the app_test database the DB suites run against
+db-test:
+	$(APP_TEST) php bin/console doctrine:database:create --if-not-exists
+	$(APP_TEST) php bin/console doctrine:migrations:migrate --no-interaction
+
+## test: Run all test suites (unit + integration + functional)
+test: db-test
+	$(APP_TEST) vendor/bin/pest
 
 ## test-unit: Run unit tests only (no DB, blazing fast)
 test-unit:
-	$(APP) vendor/bin/pest --testsuite=Unit
+	$(APP_TEST) vendor/bin/pest --testsuite=Unit
 
 ## test-integration: Run integration tests (requires DB)
-test-integration:
-	$(APP) vendor/bin/pest --testsuite=Integration
+test-integration: db-test
+	$(APP_TEST) vendor/bin/pest --testsuite=Integration
+
+## test-functional: Run HTTP-level functional tests (requires DB)
+test-functional: db-test
+	$(APP_TEST) vendor/bin/pest --testsuite=Functional
 
 ## test-e2e: Run Behat E2E API scenarios
-test-e2e:
-	$(APP) vendor/bin/behat
+test-e2e: db-test
+	$(APP_TEST) vendor/bin/behat
 
 ## coverage: Generate HTML coverage report (output: build/coverage/)
-coverage:
-	$(APP) php -d pcov.enabled=1 vendor/bin/pest --coverage --coverage-html=build/coverage
+coverage: db-test
+	$(APP_TEST) php -d pcov.enabled=1 vendor/bin/pest --coverage --coverage-html=build/coverage
 
-## mutation: Run Infection mutation testing (MSI target: 80%)
+## mutation: Mutation testing - Infection on src/Domain, Pest on src/Application (docs/testing.md)
 mutation:
-	$(APP) vendor/bin/infection --threads=4
+	$(APP_TEST) composer mutation
 
 # ─── Code Quality ─────────────────────────────────────────────────────────────
 
@@ -93,10 +111,6 @@ rector:
 ## db-migrate: Run pending Doctrine migrations
 db-migrate:
 	$(CONSOLE) doctrine:migrations:migrate --no-interaction
-
-## db-fixtures: Load test fixtures via Foundry
-db-fixtures:
-	$(CONSOLE) doctrine:fixtures:load --no-interaction
 
 ## db-reset: Drop schema, re-create, run migrations (WARNING: destroys data)
 db-reset:

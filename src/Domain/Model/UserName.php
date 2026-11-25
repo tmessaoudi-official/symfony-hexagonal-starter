@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Model;
 
-use InvalidArgumentException;
-
 /**
  * UserName Value Object.
  *
@@ -14,7 +12,7 @@ use InvalidArgumentException;
  * - Maximum 100 characters (sane UI/DB limit)
  * - No leading/trailing whitespace (stored normalised)
  */
-final readonly class UserName
+final readonly class UserName implements \Stringable
 {
     private string $value;
 
@@ -23,11 +21,11 @@ final readonly class UserName
         $trimmed = trim($value);
 
         if (strlen($trimmed) < 2) {
-            throw new InvalidArgumentException('UserName must be at least 2 characters long.');
+            throw new \InvalidArgumentException('UserName must be at least 2 characters long.');
         }
 
         if (strlen($trimmed) > 100) {
-            throw new InvalidArgumentException('UserName cannot exceed 100 characters.');
+            throw new \InvalidArgumentException('UserName cannot exceed 100 characters.');
         }
 
         $this->value = $trimmed;

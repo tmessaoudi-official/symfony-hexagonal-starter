@@ -4,18 +4,14 @@ framework:
 
     # ─── Session ──────────────────────────────────────────────────────────────
     # Stateless API — sessions disabled.
-    session:
-        handler_id: null
-        cookie_secure: auto
-        cookie_samesite: lax
-        storage_factory_id: session.storage.factory.native
+    session: false
 
     # ─── PHP-CSP / CSRF ───────────────────────────────────────────────────────
     # CSRF protection is for form-based apps; APIs use stateless tokens instead.
 
     # ─── Serializer ───────────────────────────────────────────────────────────
     serializer:
-        enable_annotations: true
+        enable_attributes: true
 
     # ─── Validation ───────────────────────────────────────────────────────────
     validation:
@@ -37,5 +33,3 @@ framework:
 when@test:
     framework:
         test: true
-        session:
-            storage_factory_id: session.storage.factory.mock_file

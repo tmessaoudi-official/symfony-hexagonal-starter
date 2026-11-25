@@ -2,69 +2,105 @@
 
 declare(strict_types=1);
 
+namespace App\Tests\Unit\Domain\ValueObject;
+
 use App\Domain\Model\UserId;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 
-describe('UserId Value Object', function (): void {
-    it('generates a valid UUID v4', function (): void {
-        $id = UserId::generate();
+/** PHPUnit class on purpose (Infection gates src/Domain); see EmailTest. */
+final class UserIdTest extends TestCase
+{
+    private const string UUID = '550e8400-e29b-41d4-a716-446655440000';
 
-        expect($id->value())->toMatch(
-            '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i'
-        );
-    });
+    #[Test]
+    public function itGeneratesAValidUuidV4(): void
+    {
+        // 256 ids, not one: generate() starts from random bytes, and a bug in the version or
+        // variant bit masking shows up only for some byte values (in about half of them for
+        // most masking errors). One sample let such a mutant survive about one run in two;
+        // with 256 samples the chance is below 2^-256, so the test is deterministic in practice.
+        for ($i = 0; $i < 256; ++$i) {
+            self::assertMatchesRegularExpression(
+                '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/',
+                UserId::generate()->value(),
+            );
+        }
+    }
 
-    it('generates unique IDs on each call', function (): void {
-        $a = UserId::generate();
-        $b = UserId::generate();
+    #[Test]
+    public function itGeneratesUniqueIdsOnEachCall(): void
+    {
+        self::assertNotSame(UserId::generate()->value(), UserId::generate()->value());
+    }
 
-        expect($a->value())->not->toBe($b->value());
-    });
+    #[Test]
+    public function itCreatesAUserIdFromAValidUuidString(): void
+    {
+        self::assertSame(self::UUID, UserId::fromString(self::UUID)->value());
+    }
 
-    it('creates a UserId from a valid UUID string', function (): void {
-        $uuid = '550e8400-e29b-41d4-a716-446655440000';
-        $id   = UserId::fromString($uuid);
+    #[Test]
+    public function itNormalisesTheUuidToLowercase(): void
+    {
+        self::assertSame(self::UUID, UserId::fromString(strtoupper(self::UUID))->value());
+    }
 
-        expect($id->value())->toBe(strtolower($uuid));
-    });
+    #[Test]
+    public function itThrowsForANonUuidString(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
 
-    it('normalises UUID to lowercase', function (): void {
-        $uuid = '550E8400-E29B-41D4-A716-446655440000';
-        $id   = UserId::fromString($uuid);
-
-        expect($id->value())->toBe(strtolower($uuid));
-    });
-
-    it('throws InvalidArgumentException for a non-UUID string', function (): void {
         UserId::fromString('not-a-uuid');
-    })->throws(InvalidArgumentException::class);
+    }
 
-    it('throws InvalidArgumentException for an empty string', function (): void {
+    #[Test]
+    public function itThrowsForAnEmptyString(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
         UserId::fromString('');
-    })->throws(InvalidArgumentException::class);
+    }
 
-    it('throws InvalidArgumentException for a UUID with wrong format', function (): void {
+    #[Test]
+    public function itThrowsForAUuidWithTheWrongFormat(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
         UserId::fromString('550e8400-e29b-41d4-a716'); // too short
-    })->throws(InvalidArgumentException::class);
+    }
 
-    it('considers two UserIds with the same UUID as equal', function (): void {
-        $uuid = '550e8400-e29b-41d4-a716-446655440000';
-        $a    = UserId::fromString($uuid);
-        $b    = UserId::fromString(strtoupper($uuid));
+    #[Test]
+    public function itRejectsAUuidWithLeadingCharacters(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
 
-        expect($a->equals($b))->toBeTrue();
-    });
+        UserId::fromString('x'.self::UUID); // the pattern must be anchored at the start (^)
+    }
 
-    it('considers two UserIds with different UUIDs as unequal', function (): void {
-        $a = UserId::fromString('550e8400-e29b-41d4-a716-446655440000');
-        $b = UserId::fromString('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
+    #[Test]
+    public function itRejectsAUuidWithTrailingCharacters(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
 
-        expect($a->equals($b))->toBeFalse();
-    });
+        UserId::fromString(self::UUID.'x'); // ... and at the end ($)
+    }
 
-    it('casts to string', function (): void {
-        $uuid = '550e8400-e29b-41d4-a716-446655440000';
-        $id   = UserId::fromString($uuid);
+    #[Test]
+    public function itConsidersTwoUserIdsWithTheSameUuidEqual(): void
+    {
+        self::assertTrue(UserId::fromString(self::UUID)->equals(UserId::fromString(strtoupper(self::UUID))));
+    }
 
-        expect((string) $id)->toBe($uuid);
-    });
-});
+    #[Test]
+    public function itConsidersTwoUserIdsWithDifferentUuidsUnequal(): void
+    {
+        self::assertFalse(UserId::fromString(self::UUID)->equals(UserId::fromString('6ba7b810-9dad-11d1-80b4-00c04fd430c8')));
+    }
+
+    #[Test]
+    public function itCastsToString(): void
+    {
+        self::assertSame(self::UUID, (string) UserId::fromString(self::UUID));
+    }
+}

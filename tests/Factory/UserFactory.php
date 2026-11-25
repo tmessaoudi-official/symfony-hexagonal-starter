@@ -7,7 +7,6 @@ namespace App\Tests\Factory;
 use App\Domain\Model\UserRole;
 use App\Domain\Model\UserStatus;
 use App\Infrastructure\Persistence\Doctrine\Entity\UserEntity;
-use DateTimeImmutable;
 use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
 
 /**
@@ -36,20 +35,20 @@ final class UserFactory extends PersistentProxyObjectFactory
         // Use uniqid with more_entropy=true for collision-resistant unique values
         // across parallel test runs. This avoids shared static state.
         $unique = uniqid('', true);
-        $now    = new DateTimeImmutable();
+        $now = new \DateTimeImmutable();
 
         // Build a valid UUID v4 from random bytes.
-        $bytes    = random_bytes(16);
+        $bytes = random_bytes(16);
         $bytes[6] = chr((ord($bytes[6]) & 0x0F) | 0x40); // version 4
         $bytes[8] = chr((ord($bytes[8]) & 0x3F) | 0x80); // variant
-        $uuid     = vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
+        $uuid = vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
 
         return [
-            'id'        => $uuid,
-            'email'     => sprintf('user-%s@example.com', substr(md5($unique), 0, 12)),
-            'name'      => sprintf('User %s', substr($unique, 0, 6)),
-            'status'    => UserStatus::Active,
-            'role'      => UserRole::Regular,
+            'id' => $uuid,
+            'email' => sprintf('user-%s@example.com', substr(md5($unique), 0, 12)),
+            'name' => sprintf('User %s', substr($unique, 0, 6)),
+            'status' => UserStatus::Active,
+            'role' => UserRole::Regular,
             'createdAt' => $now,
             'updatedAt' => $now,
         ];

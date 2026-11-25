@@ -47,7 +47,7 @@ Use `/make-feature FeatureName` for full scaffolding. Manual steps:
 - Create `Http/StateProvider/FeatureNameProvider.php`
 
 ### 4. Tests
-- `tests/Unit/Domain/Model/FeatureNameTest.php` — pure domain logic, no framework
+- `tests/Unit/Domain/Model/FeatureNameTest.php` — pure domain logic, no framework. Write it as a PHPUnit class (`final class FeatureNameTest extends TestCase`), not Pest closures: Infection mutation-tests `src/Domain` and can only drive PHPUnit classes (see `docs/testing.md`)
 - `tests/Integration/Application/CreateFeatureNameCommandHandlerTest.php` — real DB, DAMA rollback
 - `features/feature_name.feature` — Behat E2E scenarios
 
@@ -65,13 +65,13 @@ Use `/make-feature FeatureName` for full scaffolding. Manual steps:
 ### EntityManager Clearing in Batches
 When processing large datasets, call `$em->flush(); $em->clear();` every N items (see `docs/patterns/bulk-operations.md`). After `clear()`, any previously loaded entities become detached — calling methods on them or passing them to `flush()` will throw. Re-fetch entities after a `clear()` if you need them.
 
-### Doctrine Proxy Classes
-Doctrine wraps entities in proxy classes for lazy loading. `$entity instanceof UserEntity` is `true` for proxies. But `get_class($entity)` returns the proxy class name. Use `$em->getClassMetadata($entity)->getName()` if you need the real class name.
+### Doctrine Lazy Objects (no proxy classes)
+Doctrine ORM 3 on PHP 8.4+ uses native lazy objects: a reference (`$em->getReference()`) or a lazy association is an uninitialised instance of the entity class itself, not a generated proxy subclass. `get_class($entity)` returns `UserEntity`; `(new \ReflectionClass($entity))->isUninitializedLazyObject($entity)` tells whether it is still lazy. There is no proxy directory to configure or warm.
 
 ### Messenger Serialization
 Messages dispatched to async transports (RabbitMQ) are serialized. Only use serializable types in your Command/Event/Query classes: strings, ints, arrays, scalars. Value Objects (Email, UserId) are not serializable by default — either serialize primitives and reconstruct VOs in the handler, or add a Messenger serializer for your domain types.
 
-### Doctrine Enum Mapping (PHP 8.4)
+### Doctrine Enum Mapping
 Backed enums (`UserStatus`) are mapped via `enumType` in `#[ORM\Column]`. Doctrine 3 handles this natively. If you add a new enum case, add it to the DB CHECK constraint and run a migration.
 
 ### Domain Events in Tests
@@ -103,9 +103,13 @@ make test           # All tests
 make test-unit      # Domain unit tests (fast, no DB)
 make test-integration  # Integration tests (requires DB)
 make test-e2e       # Behat API scenarios
+make test-functional  # HTTP-level API tests (requires DB)
 make coverage       # HTML coverage report in build/coverage/
-make mutation       # Infection mutation testing
+make mutation       # Infection on src/Domain + Pest --mutate on src/Application
 ```
+
+### Message handlers
+Always name the bus: `#[AsMessageHandler(bus: 'command.bus')]`. Without `bus:` a handler is registered on every bus. Inject the event bus as `MessageBusInterface $eventBus` (the parameter name selects `event.bus`); a plain `$bus` gets the default `command.bus`, which rejects events that have no handler.
 
 ### Quality
 ```bash
@@ -119,6 +123,7 @@ make rector         # Apply Rector refactoring
 ### Database
 ```bash
 make db-migrate     # Run migrations
+make db-test        # Create + migrate app_test; test targets override APP_ENV and DATABASE_URL (see Makefile)
 make db-reset       # Drop, recreate, migrate (WARNING: destroys data)
 ```
 

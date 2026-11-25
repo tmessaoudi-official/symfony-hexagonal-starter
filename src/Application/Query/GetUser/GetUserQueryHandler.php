@@ -14,11 +14,12 @@ use App\Domain\Repository\UserRepository;
  * The handler delegates mapping to the domain object's public accessors.
  * No domain logic lives here — only orchestration.
  */
-final class GetUserQueryHandler
+final readonly class GetUserQueryHandler
 {
     public function __construct(
-        private readonly UserRepository $users,
-    ) {}
+        private UserRepository $users,
+    ) {
+    }
 
     public function __invoke(GetUserQuery $query): UserOutput
     {

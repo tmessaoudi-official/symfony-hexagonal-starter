@@ -7,7 +7,6 @@ namespace App\Domain\Service;
 use App\Domain\Model\User;
 use App\Domain\Model\UserRole;
 use App\Domain\Repository\UserRepository;
-use DateTimeImmutable;
 
 /**
  * UserPromotionPolicy — pure domain decision logic.
@@ -23,9 +22,9 @@ use DateTimeImmutable;
  */
 final class UserPromotionPolicy
 {
-    private const MAX_ADMINS              = 5;
-    private const MIN_AGE_MODERATOR_DAYS  = 30;
-    private const MIN_AGE_ADMIN_DAYS      = 90;
+    private const int MAX_ADMINS = 5;
+    private const int MIN_AGE_MODERATOR_DAYS = 30;
+    private const int MIN_AGE_ADMIN_DAYS = 90;
 
     /**
      * Checks all eligibility rules for promoting $user to $targetRole.
@@ -37,10 +36,10 @@ final class UserPromotionPolicy
      *   4. Admin cap: no more than 5 Admins in the system at any time
      */
     public function check(
-        User              $user,
-        UserRole          $targetRole,
-        UserRepository    $repository,
-        DateTimeImmutable $now,
+        User $user,
+        UserRole $targetRole,
+        UserRepository $repository,
+        \DateTimeImmutable $now,
     ): EligibilityResult {
         if (!$user->status()->isActive()) {
             return EligibilityResult::ineligible('User account is not active.');
@@ -55,10 +54,10 @@ final class UserPromotionPolicy
         }
 
         $ageDays = (int) $user->createdAt()->diff($now)->days;
-        $minAge  = match ($targetRole) {
+        $minAge = match ($targetRole) {
             UserRole::Moderator => self::MIN_AGE_MODERATOR_DAYS,
-            UserRole::Admin     => self::MIN_AGE_ADMIN_DAYS,
-            default             => 0,
+            UserRole::Admin => self::MIN_AGE_ADMIN_DAYS,
+            default => 0,
         };
 
         if ($ageDays < $minAge) {

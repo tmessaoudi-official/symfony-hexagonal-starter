@@ -8,19 +8,15 @@ use App\Domain\Event\UserCreated;
 use App\Domain\Model\Email;
 use App\Domain\Model\UserId;
 use App\Domain\Model\UserName;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
-uses(\PHPUnit\Framework\TestCase::class);
-
-/**
- * @var Mailer&MockObject $mailer
- * @var SendWelcomeEmailOnUserCreated $handler
- */
+uses(TestCase::class);
 
 describe('SendWelcomeEmailOnUserCreated (Unit)', function (): void {
     beforeEach(function (): void {
-        $this->mailer  = $this->createMock(Mailer::class);
+        $this->mailer = $this->createMock(Mailer::class);
         $this->handler = new SendWelcomeEmailOnUserCreated($this->mailer, new NullLogger());
     });
 
@@ -53,6 +49,21 @@ describe('SendWelcomeEmailOnUserCreated (Unit)', function (): void {
             ->with('upper@example.com', 'Upper User');
 
         ($this->handler)($event);
+    });
+
+    it('logs which user is being welcomed', function (): void {
+        $userId = UserId::generate();
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('info')
+            ->with('Sending welcome email', ['userId' => $userId->value(), 'email' => 'log@example.com']);
+
+        $handler = new SendWelcomeEmailOnUserCreated($this->mailer, $logger);
+        $handler(new UserCreated(
+            userId: $userId,
+            email: Email::fromString('log@example.com'),
+            name: UserName::fromString('Log User'),
+        ));
     });
 
     it('sends exactly one email per UserCreated event', function (): void {

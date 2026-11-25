@@ -1,55 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-    bootstrap="vendor/autoload.php"
-    colors="true"
-    backupGlobals="false"
-    backupStaticProperties="false"
-    beStrictAboutOutputDuringTests="true"
-    beStrictAboutTodoAnnotatedTests="true"
-    failOnRisky="true"
-    failOnWarning="true"
->
-    <!-- ─── Test suites ─────────────────────────────────────────────── -->
-    <testsuites>
-        <testsuite name="Unit">
-            <directory>tests/Unit</directory>
-        </testsuite>
-        <testsuite name="Integration">
-            <directory>tests/Integration</directory>
-        </testsuite>
-        <testsuite name="Functional">
-            <directory>tests/Functional</directory>
-        </testsuite>
-    </testsuites>
-
-    <!-- ─── Coverage ────────────────────────────────────────────────── -->
-    <source>
-        <include>
-            <directory>src</directory>
-        </include>
-        <exclude>
-            <directory>src/Infrastructure/Persistence/Migration</directory>
-        </exclude>
-    </source>
-
-    <!-- ─── PHP extensions ──────────────────────────────────────────── -->
-    <extensions>
-        <!--
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd" bootstrap="tests/bootstrap.php" colors="true" backupGlobals="false" backupStaticProperties="false" beStrictAboutOutputDuringTests="true" failOnRisky="true" failOnWarning="true" defaultTestSuite="Unit,Integration,Functional">
+  <!-- ─── Test suites ─────────────────────────────────────────────── -->
+  <!-- defaultTestSuite leaves out "Domain": its files are also in "Unit", and loading both in one
+       run is a PHPUnit warning, which failOnWarning turns into a failed build. -->
+  <testsuites>
+    <testsuite name="Unit">
+      <directory>tests/Unit</directory>
+    </testsuite>
+    <!-- Domain: plain PHPUnit classes, so Infection can drive them (it cannot run Pest closures).
+         They also run as part of "Unit". -->
+    <testsuite name="Domain">
+      <directory>tests/Unit/Domain</directory>
+    </testsuite>
+    <testsuite name="Integration">
+      <directory>tests/Integration</directory>
+    </testsuite>
+    <testsuite name="Functional">
+      <directory>tests/Functional</directory>
+    </testsuite>
+  </testsuites>
+  <!-- ─── Coverage ────────────────────────────────────────────────── -->
+  <source>
+    <include>
+      <directory>src</directory>
+    </include>
+    <exclude>
+      <directory>src/Infrastructure/Persistence/Migration</directory>
+    </exclude>
+  </source>
+  <!-- ─── PHP extensions ──────────────────────────────────────────── -->
+  <extensions>
+    <bootstrap class="Zenstruck\Foundry\PHPUnit\FoundryExtension"/>
+    <!--
             DAMA DoctrineTestBundle wraps each DB test in a transaction.
             The transaction is rolled back after each test — no tearDown needed.
-            Requires: composer require --dev dama/doctrine-test-bundle
+            Requires the dama/doctrine-test-bundle dev dependency.
         -->
-        <bootstrap class="DAMA\DoctrineTestBundle\PHPUnit\PHPUnitExtension"/>
-    </extensions>
-
-    <!-- ─── Environment ─────────────────────────────────────────────── -->
-    <php>
-        <ini name="display_errors" value="1"/>
-        <ini name="error_reporting" value="-1"/>
-        <server name="APP_ENV" value="test" force="true"/>
-        <server name="APP_DEBUG" value="1"/>
-        <server name="SHELL_VERBOSITY" value="-1"/>
-    </php>
+    <bootstrap class="DAMA\DoctrineTestBundle\PHPUnit\PHPUnitExtension"/>
+  </extensions>
+  <!-- ─── Environment ─────────────────────────────────────────────── -->
+  <php>
+    <ini name="display_errors" value="1"/>
+    <ini name="error_reporting" value="-1"/>
+    <server name="APP_ENV" value="test" force="true"/>
+    <server name="APP_DEBUG" value="1"/>
+    <!-- No SHELL_VERBOSITY=-1 here (the Symfony recipe adds it): Pest prints its report
+         through Symfony Console, so -1 silences every test result. -->
+  </php>
 </phpunit>

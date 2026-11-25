@@ -6,9 +6,6 @@ use Rector\CodeQuality\Rector\Class_\InlineConstructorDefaultToPropertyRector;
 use Rector\Config\RectorConfig;
 use Rector\DeadCode\Rector\ClassMethod\RemoveUnusedPrivateMethodRector;
 use Rector\DeadCode\Rector\Property\RemoveUnusedPrivatePropertyRector;
-use Rector\Set\ValueObject\LevelSetList;
-use Rector\Set\ValueObject\SetList;
-use Rector\Symfony\Set\SymfonySetList;
 use Rector\TypeDeclaration\Rector\ClassMethod\AddVoidReturnTypeWhereNoReturnRector;
 
 return RectorConfig::configure()
@@ -20,23 +17,23 @@ return RectorConfig::configure()
         __DIR__ . '/src/Infrastructure/Persistence/Migration',
     ])
 
-    // ─── PHP 8.4 ruleset ──────────────────────────────────────────────────────
-    ->withSets([
-        LevelSetList::UP_TO_PHP_84,
-    ])
+    // ─── PHP language level ───────────────────────────────────────────────────
+    // No arguments: the target is read from composer.json ("php": ">=8.6"), so a PHP
+    // bump there is the only change needed. (LevelSetList is deprecated in Rector 2.)
+    ->withPhpSets()
 
     // ─── Quality rules ────────────────────────────────────────────────────────
-    ->withSets([
-        SetList::CODE_QUALITY,
-        SetList::DEAD_CODE,
-        SetList::TYPE_DECLARATION,
-    ])
+    ->withPreparedSets(
+        deadCode: true,
+        codeQuality: true,
+        typeDeclarations: true,
+        symfonyCodeQuality: true,
+    )
 
-    // ─── Symfony-specific upgrades ────────────────────────────────────────────
-    ->withSets([
-        SymfonySetList::SYMFONY_70,
-        SymfonySetList::SYMFONY_CODE_QUALITY,
-    ])
+    // ─── Framework upgrades ───────────────────────────────────────────────────
+    // Upgrade sets chosen from the installed versions in composer.lock (Symfony 8.1,
+    // Doctrine ORM 3, PHPUnit 13), so they never lag behind the dependencies.
+    ->withComposerBased(doctrine: true, phpunit: true, symfony: true)
 
     // ─── Individual rules ─────────────────────────────────────────────────────
     ->withRules([

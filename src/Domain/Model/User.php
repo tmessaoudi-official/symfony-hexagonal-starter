@@ -6,7 +6,6 @@ namespace App\Domain\Model;
 
 use App\Domain\Event\UserCreated;
 use App\Domain\Event\UserPromoted;
-use DateTimeImmutable;
 
 /**
  * User Aggregate Root.
@@ -39,9 +38,10 @@ final class User
         private UserName $name,
         private UserStatus $status,
         private UserRole $role,
-        private readonly DateTimeImmutable $createdAt,
-        private DateTimeImmutable $updatedAt,
-    ) {}
+        private readonly \DateTimeImmutable $createdAt,
+        private \DateTimeImmutable $updatedAt,
+    ) {
+    }
 
     public static function create(
         UserId $id,
@@ -49,7 +49,7 @@ final class User
         UserName $name,
         UserRole $role = UserRole::Regular,
     ): self {
-        $now = new DateTimeImmutable();
+        $now = new \DateTimeImmutable();
 
         $user = new self(
             id: $id,
@@ -79,8 +79,8 @@ final class User
         UserName $name,
         UserStatus $status,
         UserRole $role,
-        DateTimeImmutable $createdAt,
-        DateTimeImmutable $updatedAt,
+        \DateTimeImmutable $createdAt,
+        \DateTimeImmutable $updatedAt,
     ): self {
         return new self(
             id: $id,
@@ -96,32 +96,32 @@ final class User
     public function rename(UserName $name): void
     {
         $this->name = $name;
-        $this->updatedAt = new DateTimeImmutable();
+        $this->updatedAt = new \DateTimeImmutable();
     }
 
     public function changeEmail(Email $email): void
     {
         $this->email = $email;
-        $this->updatedAt = new DateTimeImmutable();
+        $this->updatedAt = new \DateTimeImmutable();
     }
 
     public function deactivate(): void
     {
         $this->status = UserStatus::Inactive;
-        $this->updatedAt = new DateTimeImmutable();
+        $this->updatedAt = new \DateTimeImmutable();
     }
 
     public function activate(): void
     {
         $this->status = UserStatus::Active;
-        $this->updatedAt = new DateTimeImmutable();
+        $this->updatedAt = new \DateTimeImmutable();
     }
 
     public function promote(UserRole $newRole): void
     {
-        $previousRole   = $this->role;
-        $this->role     = $newRole;
-        $this->updatedAt = new DateTimeImmutable();
+        $previousRole = $this->role;
+        $this->role = $newRole;
+        $this->updatedAt = new \DateTimeImmutable();
 
         $this->record(new UserPromoted($this->id, $previousRole, $newRole));
     }
@@ -153,12 +153,12 @@ final class User
         return $this->role;
     }
 
-    public function createdAt(): DateTimeImmutable
+    public function createdAt(): \DateTimeImmutable
     {
         return $this->createdAt;
     }
 
-    public function updatedAt(): DateTimeImmutable
+    public function updatedAt(): \DateTimeImmutable
     {
         return $this->updatedAt;
     }

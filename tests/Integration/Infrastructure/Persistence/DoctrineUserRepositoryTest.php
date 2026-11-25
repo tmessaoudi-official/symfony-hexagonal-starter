@@ -9,8 +9,9 @@ use App\Domain\Model\UserId;
 use App\Domain\Model\UserName;
 use App\Domain\Model\UserStatus;
 use App\Domain\Repository\UserRepository;
+use Symfony\Bundle\FrameworkBundle\Test\TestContainer;
 
-/**
+/*
  * Integration tests for DoctrineUserRepository.
  *
  * Runs inside a DAMA DoctrineTestBundle transaction — every test starts with
@@ -18,21 +19,22 @@ use App\Domain\Repository\UserRepository;
  */
 describe('DoctrineUserRepository (Integration)', function (): void {
     beforeEach(function (): void {
-        /** @var UserRepository $repo */
-        $this->repo = $this->getContainer()->get(UserRepository::class);
+        // getContainer() is typed Container but returns the test container, which exposes private services.
+        /** @var TestContainer $container */
+        $container = $this->getContainer();
+        $this->repo = $container->get(UserRepository::class);
     });
 
     it('saves a user and finds it by ID', function (): void {
-        $id   = UserId::generate();
+        $id = UserId::generate();
         $user = User::create($id, Email::fromString('repo@example.com'), UserName::fromString('Repo User'));
         $user->pullDomainEvents(); // discard events — not needed in this test
 
         $this->repo->save($user);
 
-        $found = $this->repo->findById($id);
+        $found = $this->repo->findById($id) ?? throw new RuntimeException('The saved user was not found.');
 
-        expect($found)->not->toBeNull()
-            ->and($found->id()->value())->toBe($id->value())
+        expect($found->id()->value())->toBe($id->value())
             ->and($found->email()->value())->toBe('repo@example.com')
             ->and($found->name()->value())->toBe('Repo User')
             ->and($found->status())->toBe(UserStatus::Active);
@@ -55,10 +57,10 @@ describe('DoctrineUserRepository (Integration)', function (): void {
 
         $this->repo->save($user);
 
-        $found = $this->repo->findByEmail(Email::fromString('findbyemail@example.com'));
+        $found = $this->repo->findByEmail(Email::fromString('findbyemail@example.com'))
+            ?? throw new RuntimeException('The saved user was not found by email.');
 
-        expect($found)->not->toBeNull()
-            ->and($found->email()->value())->toBe('findbyemail@example.com');
+        expect($found->email()->value())->toBe('findbyemail@example.com');
     });
 
     it('findByEmail returns null when the email does not exist', function (): void {
@@ -91,7 +93,7 @@ describe('DoctrineUserRepository (Integration)', function (): void {
     });
 
     it('updates a user when saved twice with the same ID', function (): void {
-        $id   = UserId::generate();
+        $id = UserId::generate();
         $user = User::create($id, Email::fromString('updateme@example.com'), UserName::fromString('Old Name'));
         $user->pullDomainEvents();
         $this->repo->save($user);
@@ -99,17 +101,16 @@ describe('DoctrineUserRepository (Integration)', function (): void {
         $user->rename(UserName::fromString('New Name'));
         $this->repo->save($user);
 
-        $found = $this->repo->findById($id);
+        $found = $this->repo->findById($id) ?? throw new RuntimeException('The renamed user was not found.');
 
-        expect($found)->not->toBeNull()
-            ->and($found->name()->value())->toBe('New Name');
+        expect($found->name()->value())->toBe('New Name');
     });
 
     it('cursor pagination via findPage returns correct slice', function (): void {
         // Create 5 users with predictable IDs in ascending order.
         $ids = [];
-        for ($i = 1; $i <= 5; $i++) {
-            $id   = UserId::generate();
+        for ($i = 1; $i <= 5; ++$i) {
+            $id = UserId::generate();
             $ids[] = $id->value();
             $user = User::create($id, Email::fromString("page{$i}@example.com"), UserName::fromString("Page {$i}"));
             $user->pullDomainEvents();
@@ -123,7 +124,7 @@ describe('DoctrineUserRepository (Integration)', function (): void {
 
         // Fetch next page using the last item of page 1 as cursor.
         $cursor = $page1[count($page1) - 1]->id();
-        $page2  = $this->repo->findPage(2, $cursor);
+        $page2 = $this->repo->findPage(2, $cursor);
 
         expect($page2)->toHaveCount(2);
 
@@ -134,7 +135,7 @@ describe('DoctrineUserRepository (Integration)', function (): void {
     });
 
     it('deletes a user', function (): void {
-        $id   = UserId::generate();
+        $id = UserId::generate();
         $user = User::create($id, Email::fromString('deleteme@example.com'), UserName::fromString('Delete Me'));
         $user->pullDomainEvents();
         $this->repo->save($user);

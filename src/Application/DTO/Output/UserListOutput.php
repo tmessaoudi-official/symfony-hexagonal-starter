@@ -18,5 +18,6 @@ final readonly class UserListOutput
         public array $items,
         public ?string $nextCursor,
         public bool $hasMore,
-    ) {}
+    ) {
+    }
 }

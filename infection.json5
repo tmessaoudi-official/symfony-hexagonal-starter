@@ -1,37 +1,33 @@
 {
-    // Infection — mutation testing configuration.
-    // Target: Mutation Score Indicator (MSI) >= 80%.
-    // MSI = mutations killed / total mutations * 100.
+    // Infection: mutation testing for the DOMAIN layer only.
+    // The Application layer is mutation-tested by Pest (`pest --mutate`), see docs/testing.md.
+    // Infection drives PHPUnit test classes, which is why tests/Unit/Domain uses them.
+    // MSI = mutants killed / all mutants; Covered MSI = killed / mutants on covered code.
 
-    "$schema": "https://infection.github.io/schema/infection-4.0.json",
+    "$schema": "https://raw.githubusercontent.com/infection/infection/master/resources/schema.json",
 
     "source": {
-        "directories": ["src"],
-        "excludes": [
-            "Infrastructure/Persistence/Migration",
-            "Kernel.php"
-        ]
+        "directories": ["src/Domain"]
     },
 
     "testFramework": "phpunit",
-    "testFrameworkOptions": "--testsuite=Unit",
+    "testFrameworkOptions": "--testsuite=Domain",
 
-    "minMsi": 80,
-    "minCoveredMsi": 85,
+    // Floors come from measured runs, not a round number: PHP 8.5 + pcov, MSI 90% (105 of 116
+    // mutants killed, 0 uncovered), identical over repeated runs. The 11 survivors are equivalent
+    // mutants (see docs/testing.md). The floor leaves about two mutants of margin, so new
+    // untested Domain code fails the build. Raise it when you kill survivors; never lower it.
+    "minMsi": 88,
+    "minCoveredMsi": 88,
 
     "mutators": {
-        "@default": true,
-
-        // ─── Disable noisy mutators that produce many false positives ──────
-        "PregQuote": false,
-        "CastInt": false
+        "@default": true
     },
 
     "logs": {
         "text": "build/infection/infection.log",
         "html": "build/infection/infection.html",
-        "json": "build/infection/infection.json",
-        "perMutator": "build/infection/per-mutator.md"
+        "summary": "build/infection/summary.log"
     },
 
     "tmpDir": "build/infection/tmp"

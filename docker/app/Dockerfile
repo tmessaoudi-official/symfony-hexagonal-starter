@@ -1,6 +1,13 @@
 # ─── Build arguments ──────────────────────────────────────────────────────────
-ARG PHP_VERSION=8.4
+# 8.5: the newest PHP whose extensions (ext-amqp, pcov, phpredis) have stable releases that build.
+# PHP 8.6 runs as a non-blocking CI job until all three ship stable 8.6-compatible releases.
+ARG PHP_VERSION=8.5
 ARG COMPOSER_VERSION=2
+ARG PIE_VERSION=1.6.0
+
+# PIE (PHP Installer for Extensions) is PECL's successor; the PHP 8.6 images no longer ship PECL.
+# It is bind-mounted only while extensions are built, so it never lands in an image layer.
+FROM ghcr.io/php/pie:${PIE_VERSION}-bin AS pie
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Stage 1: base — shared between dev, test, and prod
@@ -8,7 +15,9 @@ ARG COMPOSER_VERSION=2
 FROM php:${PHP_VERSION}-fpm-alpine AS base
 
 # Install system dependencies required by PHP extensions.
-# Pinned to Alpine package versions for reproducibility.
+# OPcache and PDO are compiled into the official PHP 8.5+ images (docker-php-ext-install
+# opcache fails there). mbstring is bundled up to 8.5 but NOT in the 8.6 images, so it is
+# built only when missing; it needs oniguruma.
 RUN apk add --no-cache \
     bash \
     curl \
@@ -20,15 +29,19 @@ RUN apk add --no-cache \
     unzip \
     && docker-php-ext-install \
         intl \
-        opcache \
-        pdo \
         pdo_pgsql \
         zip \
-    && docker-php-ext-enable opcache \
+    && (php -m | grep -qix mbstring || docker-php-ext-install mbstring) \
     && rm -rf /var/cache/apk/*
 
-# Install pcov for code coverage (much faster than Xdebug for pure coverage).
-RUN pecl install pcov && docker-php-ext-enable pcov
+# AMQP extension for the RabbitMQ Messenger transport (every stage that runs workers) and
+# phpredis for the Redis cache pools (config/packages/cache.yaml; prod cannot warm up without it).
+RUN --mount=type=bind,from=pie,source=/pie,target=/usr/local/bin/pie \
+    apk add --no-cache rabbitmq-c \
+    && apk add --no-cache --virtual .ext-build-deps $PHPIZE_DEPS libtool linux-headers rabbitmq-c-dev \
+    && pie install php-amqp/php-amqp \
+    && pie install phpredis/phpredis \
+    && apk del .ext-build-deps
 
 # Copy PHP production ini.
 COPY docker/app/php.ini /usr/local/etc/php/conf.d/app.ini
@@ -38,9 +51,11 @@ WORKDIR /app
 # ═══════════════════════════════════════════════════════════════════════════════
 # Stage 2: composer — install PHP dependencies
 # ═══════════════════════════════════════════════════════════════════════════════
-FROM composer:${COMPOSER_VERSION} AS composer-deps
+# Runs on the base image (not composer:2) so Composer's platform check sees the real PHP
+# version and extensions (ext-amqp) the application will run with.
+FROM base AS composer-deps
 
-WORKDIR /app
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY composer.json composer.lock ./
 
@@ -57,8 +72,12 @@ RUN composer install \
 # ═══════════════════════════════════════════════════════════════════════════════
 FROM base AS dev
 
-# Install Xdebug for interactive debugging (use pcov for coverage in CI).
-RUN pecl install xdebug && docker-php-ext-enable xdebug
+# Xdebug for interactive debugging, pcov for coverage.
+RUN --mount=type=bind,from=pie,source=/pie,target=/usr/local/bin/pie \
+    apk add --no-cache --virtual .ext-build-deps $PHPIZE_DEPS libtool linux-headers \
+    && pie install pecl/pcov \
+    && pie install xdebug/xdebug \
+    && apk del .ext-build-deps
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -73,6 +92,12 @@ EXPOSE 9000
 # Stage 4: test — used in CI for running the test suite
 # ═══════════════════════════════════════════════════════════════════════════════
 FROM base AS test
+
+# pcov for coverage (CI, mutation testing). Not in prod: coverage has no place there.
+RUN --mount=type=bind,from=pie,source=/pie,target=/usr/local/bin/pie \
+    apk add --no-cache --virtual .ext-build-deps $PHPIZE_DEPS libtool \
+    && pie install pecl/pcov \
+    && apk del .ext-build-deps
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY . .

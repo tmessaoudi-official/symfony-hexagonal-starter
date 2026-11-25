@@ -8,6 +8,7 @@ use App\Application\Command\CreateUser\CreateUserCommand;
 use App\Application\Command\CreateUser\CreateUserCommandHandler;
 use App\Domain\Model\Email;
 use App\Domain\Repository\UserRepository;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -22,12 +23,12 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class UserApiTest extends WebTestCase
 {
-    private \Symfony\Bundle\FrameworkBundle\KernelBrowser $client;
+    private KernelBrowser $client;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->client = static::createClient();
+        $this->client = self::createClient();
         $this->client->disableReboot();
     }
 
@@ -41,11 +42,11 @@ final class UserApiTest extends WebTestCase
         $this->client->request(
             method: 'POST',
             uri: '/api/users',
-            content: json_encode($data, JSON_THROW_ON_ERROR),
             server: [
                 'CONTENT_TYPE' => 'application/json',
-                'HTTP_ACCEPT'  => 'application/json',
+                'HTTP_ACCEPT' => 'application/json',
             ],
+            content: json_encode($data, JSON_THROW_ON_ERROR),
         );
 
         return $this->client->getResponse();
@@ -55,7 +56,7 @@ final class UserApiTest extends WebTestCase
     {
         $this->client->request(
             method: 'GET',
-            uri: '/api/users/' . $id,
+            uri: '/api/users/'.$id,
             server: ['HTTP_ACCEPT' => 'application/json'],
         );
 
@@ -68,8 +69,8 @@ final class UserApiTest extends WebTestCase
     private function listUsers(array $query = []): Response
     {
         $uri = '/api/users';
-        if (!empty($query)) {
-            $uri .= '?' . http_build_query($query);
+        if ($query !== []) {
+            $uri .= '?'.http_build_query($query);
         }
 
         $this->client->request(
@@ -86,7 +87,7 @@ final class UserApiTest extends WebTestCase
      */
     private function seedUser(string $email, string $name): string
     {
-        $container = static::getContainer();
+        $container = self::getContainer();
 
         /** @var CreateUserCommandHandler $handler */
         $handler = $container->get(CreateUserCommandHandler::class);
@@ -94,7 +95,7 @@ final class UserApiTest extends WebTestCase
 
         /** @var UserRepository $repo */
         $repo = $container->get(UserRepository::class);
-        $user = $repo->findByEmail(Email::fromString($email));
+        $user = $repo->findByEmail(Email::fromString($email)) ?? throw new \RuntimeException("Seeded user {$email} was not found.");
 
         return $user->id()->value();
     }
@@ -143,6 +144,66 @@ final class UserApiTest extends WebTestCase
         $response = $this->postUser(['email' => 'shortname@example.com', 'name' => 'X']);
 
         self::assertSame(422, $response->getStatusCode());
+    }
+
+    public function testCreateUserWithTooLongNameReturns422(): void
+    {
+        $response = $this->postUser(['email' => 'longname@example.com', 'name' => str_repeat('a', 101)]);
+
+        self::assertSame(422, $response->getStatusCode());
+    }
+
+    public function testCreateUserWithTooLongEmailReturns422(): void
+    {
+        // 255 characters: one over the RFC 5321 limit enforced by Assert\Length(max: 254).
+        $response = $this->postUser(['email' => str_repeat('a', 243).'@example.com', 'name' => 'Long Email']);
+
+        self::assertSame(422, $response->getStatusCode());
+    }
+
+    public function testCreateUserWithANameThatIsTooShortOnceTrimmedReturns422(): void
+    {
+        // "  A  " is 5 characters, but the Domain trims names: the DTO must agree, or the request
+        // passes validation and fails later in UserName as a 500.
+        $response = $this->postUser(['email' => 'trimmed@example.com', 'name' => '  A  ']);
+
+        self::assertSame(422, $response->getStatusCode());
+    }
+
+    public function testCreateUserWithAnOverlongEmailLocalPartReturns422(): void
+    {
+        // RFC 5321 caps the local part at 64 characters; the Domain Email (FILTER_VALIDATE_EMAIL)
+        // rejects 65, so the DTO must too.
+        $response = $this->postUser(['email' => str_repeat('a', 65).'@example.com', 'name' => 'Long Local']);
+
+        self::assertSame(422, $response->getStatusCode());
+    }
+
+    public function testEveryInputTheDomainRejectsIsA422NotA500(): void
+    {
+        // Each case passed one of Symfony's Email modes (html5 or strict) or Assert\Length while the
+        // Domain value objects reject it; measured, not guessed. A 500 here means the HTTP boundary
+        // and the Domain disagree on a rule.
+        $cases = [
+            ['a..b@example.com', 'Dots'],
+            ['.a@example.com', 'Dots'],
+            ['a@b.123', 'Numeric Tld'],
+            ['é@example.com', 'Unicode Local'],
+            ['ok-email@example.com', str_repeat('é', 51)], // 51 characters, 102 bytes
+        ];
+
+        foreach ($cases as [$email, $name]) {
+            $response = $this->postUser(['email' => $email, 'name' => $name]);
+
+            self::assertSame(422, $response->getStatusCode(), sprintf('email "%s", name "%s"', $email, $name));
+        }
+    }
+
+    public function testCreateUserAcceptsTheMaximumNameLength(): void
+    {
+        $response = $this->postUser(['email' => 'maxname@example.com', 'name' => str_repeat('a', 100)]);
+
+        self::assertSame(201, $response->getStatusCode());
     }
 
     public function testCreateUserWithMissingNameReturns422(): void
@@ -212,7 +273,7 @@ final class UserApiTest extends WebTestCase
 
     public function testListUsersRespectsLimitParameter(): void
     {
-        for ($i = 1; $i <= 5; $i++) {
+        for ($i = 1; $i <= 5; ++$i) {
             $this->seedUser("limitparam{$i}@example.com", "Limit User {$i}");
         }
 
@@ -230,7 +291,7 @@ final class UserApiTest extends WebTestCase
 
     public function testListUsersWithCursorReturnsNextPage(): void
     {
-        for ($i = 1; $i <= 6; $i++) {
+        for ($i = 1; $i <= 6; ++$i) {
             $this->seedUser("cursor{$i}@example.com", "Cursor User {$i}");
         }
 
@@ -254,6 +315,43 @@ final class UserApiTest extends WebTestCase
         foreach ($page2['items'] as $item) {
             self::assertGreaterThan($cursor, $item['id']);
         }
+    }
+
+    public function testListUsersWithAMalformedCursorReturns400(): void
+    {
+        $response = $this->listUsers(['after' => 'not-a-uuid']);
+
+        self::assertSame(400, $response->getStatusCode());
+    }
+
+    public function testListUsersWithAnArrayCursorReturns400(): void
+    {
+        $this->client->request('GET', '/api/users?after[]=x', server: ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertSame(400, $this->client->getResponse()->getStatusCode());
+    }
+
+    public function testListUsersClampsAnOutOfRangeLimit(): void
+    {
+        // The limit is clamped to 1..100 rather than rejected: a documented leniency, not a 500.
+        foreach (['0', '101', '-1', 'abc'] as $limit) {
+            self::assertSame(200, $this->listUsers(['limit' => $limit])->getStatusCode(), 'limit='.$limit);
+        }
+    }
+
+    public function testTheOpenApiContractKeepsTheInputHints(): void
+    {
+        // The DTO validates by asking the Domain, so API Platform can no longer derive these hints
+        // from Assert attributes; clients and generated SDKs still rely on them.
+        $this->client->request('GET', '/api/docs.jsonopenapi');
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
+
+        /** @var array{components: array{schemas: array<string, array{properties: array<string, array<string, mixed>>}>}} $doc */
+        $doc = json_decode((string) $this->client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $properties = $doc['components']['schemas']['User.CreateUserInput']['properties'];
+
+        self::assertSame(['type' => 'string', 'format' => 'email', 'maxLength' => 254], array_intersect_key($properties['email'], array_flip(['type', 'format', 'maxLength'])));
+        self::assertSame(['type' => 'string', 'minLength' => 2, 'maxLength' => 100], array_intersect_key($properties['name'], array_flip(['type', 'minLength', 'maxLength'])));
     }
 
     public function testResponseContentTypeIsJson(): void

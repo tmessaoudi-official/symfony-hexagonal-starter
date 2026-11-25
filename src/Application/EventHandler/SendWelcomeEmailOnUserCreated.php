@@ -23,18 +23,19 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * - Messenger routes it here asynchronously (see config/packages/messenger.yaml).
  */
 #[AsMessageHandler(bus: 'event.bus')]
-final class SendWelcomeEmailOnUserCreated
+final readonly class SendWelcomeEmailOnUserCreated
 {
     public function __construct(
-        private readonly Mailer $mailer,
-        private readonly LoggerInterface $logger,
-    ) {}
+        private Mailer $mailer,
+        private LoggerInterface $logger,
+    ) {
+    }
 
     public function __invoke(UserCreated $event): void
     {
         $this->logger->info('Sending welcome email', [
             'userId' => $event->userId->value(),
-            'email'  => $event->email->value(),
+            'email' => $event->email->value(),
         ]);
 
         $this->mailer->sendWelcome(
