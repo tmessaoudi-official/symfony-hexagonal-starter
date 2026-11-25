@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Model;
 
-use InvalidArgumentException;
-
 /**
  * UserId is an immutable Value Object wrapping a UUID string.
  *
@@ -14,14 +12,14 @@ use InvalidArgumentException;
  * - Centralises format validation — callers can't accidentally pass a random string
  * - Makes domain method signatures self-documenting: getUserById(UserId $id) vs getUserById(string $id)
  */
-final readonly class UserId
+final readonly class UserId implements \Stringable
 {
     private string $value;
 
     private function __construct(string $value)
     {
         if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $value)) {
-            throw new InvalidArgumentException(sprintf('"%s" is not a valid UUID.', $value));
+            throw new \InvalidArgumentException(sprintf('"%s" is not a valid UUID.', $value));
         }
 
         $this->value = strtolower($value);

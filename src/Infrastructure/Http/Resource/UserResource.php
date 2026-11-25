@@ -14,7 +14,7 @@ use App\Infrastructure\Http\StateProcessor\CreateUserProcessor;
 use App\Infrastructure\Http\StateProvider\UserProvider;
 
 /**
- * UserResource — API Platform 4 resource definition.
+ * UserResource — API Platform resource definition.
  *
  * WHY a dedicated Resource class separate from the domain entity?
  * - API Platform resources define HTTP contracts; Domain entities define business logic.
@@ -34,10 +34,13 @@ use App\Infrastructure\Http\StateProvider\UserProvider;
     operations: [
         new Post(
             uriTemplate: '/users',
+            status: 201,
+            // A missing or wrongly-typed field becomes a 422 with a violation list,
+            // like any other validation error, instead of a generic 400.
+            collectDenormalizationErrors: true,
             input: CreateUserInput::class,
             output: UserOutput::class,
             processor: CreateUserProcessor::class,
-            status: 201,
         ),
         new Get(
             uriTemplate: '/users/{id}',
@@ -50,8 +53,9 @@ use App\Infrastructure\Http\StateProvider\UserProvider;
             provider: UserProvider::class,
         ),
     ],
-    normalizationContext: ['groups' => ['user:read']],
-    denormalizationContext: ['groups' => ['user:write']],
+    // No serialization groups: the dedicated input/output DTOs ARE the HTTP contract, and they
+    // live in the Application layer, which must not depend on the Serializer's #[Groups].
+    // (With groups set and no #[Groups] on the DTOs, nothing was (de)serialised: POST got 400.)
 )]
 final class UserResource
 {

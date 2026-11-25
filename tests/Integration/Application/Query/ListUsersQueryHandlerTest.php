@@ -6,8 +6,9 @@ use App\Application\Command\CreateUser\CreateUserCommand;
 use App\Application\Command\CreateUser\CreateUserCommandHandler;
 use App\Application\Query\ListUsers\ListUsersQuery;
 use App\Application\Query\ListUsers\ListUsersQueryHandler;
+use Symfony\Bundle\FrameworkBundle\Test\TestContainer;
 
-/**
+/*
  * Integration tests for ListUsersQueryHandler.
  *
  * Each test runs inside a DAMA transaction that is rolled back at teardown,
@@ -19,8 +20,10 @@ use App\Application\Query\ListUsers\ListUsersQueryHandler;
  */
 describe('ListUsersQueryHandler (Integration)', function (): void {
     beforeEach(function (): void {
-        $container            = $this->getContainer();
-        $this->queryHandler   = $container->get(ListUsersQueryHandler::class);
+        // getContainer() is typed Container but returns the test container, which exposes private services.
+        /** @var TestContainer $container */
+        $container = $this->getContainer();
+        $this->queryHandler = $container->get(ListUsersQueryHandler::class);
         $this->commandHandler = $container->get(CreateUserCommandHandler::class);
     });
 
@@ -33,7 +36,7 @@ describe('ListUsersQueryHandler (Integration)', function (): void {
     });
 
     it('returns all users and hasMore=false when count is below the limit', function (): void {
-        for ($i = 1; $i <= 3; $i++) {
+        for ($i = 1; $i <= 3; ++$i) {
             $email = sprintf('list%d-%s@example.com', $i, substr(bin2hex(random_bytes(4)), 0, 6));
             ($this->commandHandler)(new CreateUserCommand(email: $email, name: "List User {$i}"));
         }
@@ -45,7 +48,7 @@ describe('ListUsersQueryHandler (Integration)', function (): void {
     });
 
     it('returns exactly limit items and hasMore=true when more exist', function (): void {
-        for ($i = 1; $i <= 6; $i++) {
+        for ($i = 1; $i <= 6; ++$i) {
             $email = sprintf('page%d-%s@example.com', $i, substr(bin2hex(random_bytes(4)), 0, 6));
             ($this->commandHandler)(new CreateUserCommand(email: $email, name: "Page User {$i}"));
         }
@@ -58,7 +61,7 @@ describe('ListUsersQueryHandler (Integration)', function (): void {
     });
 
     it('cursor pagination returns the next page', function (): void {
-        for ($i = 1; $i <= 8; $i++) {
+        for ($i = 1; $i <= 8; ++$i) {
             $email = sprintf('cursor%d-%s@example.com', $i, substr(bin2hex(random_bytes(4)), 0, 6));
             ($this->commandHandler)(new CreateUserCommand(email: $email, name: "Cursor User {$i}"));
         }
@@ -84,7 +87,7 @@ describe('ListUsersQueryHandler (Integration)', function (): void {
     });
 
     it('returns 15 users with hasMore=false when limit is 20', function (): void {
-        for ($i = 1; $i <= 15; $i++) {
+        for ($i = 1; $i <= 15; ++$i) {
             $email = sprintf('bulk%d-%s@example.com', $i, substr(bin2hex(random_bytes(4)), 0, 6));
             ($this->commandHandler)(new CreateUserCommand(email: $email, name: "Bulk User {$i}"));
         }

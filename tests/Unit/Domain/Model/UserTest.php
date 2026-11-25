@@ -2,116 +2,144 @@
 
 declare(strict_types=1);
 
+namespace App\Tests\Unit\Domain\Model;
+
 use App\Domain\Event\UserCreated;
+use App\Domain\Event\UserPromoted;
 use App\Domain\Model\Email;
 use App\Domain\Model\User;
 use App\Domain\Model\UserId;
 use App\Domain\Model\UserName;
 use App\Domain\Model\UserRole;
 use App\Domain\Model\UserStatus;
-use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 
-describe('User Aggregate', function (): void {
-    it('creates a user with active status and records a UserCreated event', function (): void {
-        $id    = UserId::generate();
+/** PHPUnit class on purpose (Infection gates src/Domain); see ValueObject/EmailTest. */
+final class UserTest extends TestCase
+{
+    private function newUser(string $email = 'a@b.com', string $name = 'AB'): User
+    {
+        return User::create(UserId::generate(), Email::fromString($email), UserName::fromString($name));
+    }
+
+    #[Test]
+    public function itCreatesAnActiveUserAndRecordsAUserCreatedEvent(): void
+    {
+        $id = UserId::generate();
         $email = Email::fromString('alice@example.com');
-        $name  = UserName::fromString('Alice Smith');
+        $name = UserName::fromString('Alice Smith');
 
         $user = User::create($id, $email, $name);
 
-        expect($user->id())->toBe($id)
-            ->and($user->email())->toBe($email)
-            ->and($user->name())->toBe($name)
-            ->and($user->status())->toBe(UserStatus::Active);
+        self::assertSame($id, $user->id());
+        self::assertSame($email, $user->email());
+        self::assertSame($name, $user->name());
+        self::assertSame(UserStatus::Active, $user->status());
 
         $events = $user->pullDomainEvents();
-        expect($events)->toHaveCount(1)
-            ->and($events[0])->toBeInstanceOf(UserCreated::class);
-    });
+        self::assertCount(1, $events);
+        self::assertInstanceOf(UserCreated::class, $events[0]);
+    }
 
-    it('clears domain events after pulling them', function (): void {
-        $user = User::create(UserId::generate(), Email::fromString('a@b.com'), UserName::fromString('AB'));
-        $user->pullDomainEvents(); // first pull
-        $events = $user->pullDomainEvents(); // second pull should be empty
-        expect($events)->toBeEmpty();
-    });
+    #[Test]
+    public function itPullsEveryRecordedEventInOrder(): void
+    {
+        $user = $this->newUser();
+        $user->promote(UserRole::Moderator);
 
-    it('does NOT record an event when reconstituted', function (): void {
+        $events = $user->pullDomainEvents();
+
+        self::assertCount(2, $events);
+        self::assertInstanceOf(UserCreated::class, $events[0]);
+        self::assertInstanceOf(UserPromoted::class, $events[1]);
+    }
+
+    #[Test]
+    public function itClearsDomainEventsAfterPullingThem(): void
+    {
+        $user = $this->newUser();
+        $user->pullDomainEvents();
+
+        self::assertSame([], $user->pullDomainEvents());
+    }
+
+    #[Test]
+    public function itDoesNotRecordAnEventWhenReconstituted(): void
+    {
         $user = User::reconstitute(
             id: UserId::generate(),
             email: Email::fromString('a@b.com'),
             name: UserName::fromString('AB'),
             status: UserStatus::Active,
             role: UserRole::Regular,
-            createdAt: new DateTimeImmutable(),
-            updatedAt: new DateTimeImmutable(),
+            createdAt: new \DateTimeImmutable(),
+            updatedAt: new \DateTimeImmutable(),
         );
 
-        expect($user->pullDomainEvents())->toBeEmpty();
-    });
+        self::assertSame([], $user->pullDomainEvents());
+    }
 
-    it('updates the updatedAt timestamp when renamed', function (): void {
-        $user = User::create(UserId::generate(), Email::fromString('a@b.com'), UserName::fromString('AB'));
+    #[Test]
+    public function itUpdatesTheUpdatedAtTimestampWhenRenamed(): void
+    {
+        $user = $this->newUser();
         $before = $user->updatedAt();
 
-        // Sleep 1 microsecond to ensure a different timestamp.
-        usleep(1000);
+        usleep(1000); // 1 ms, so the new timestamp differs
         $user->rename(UserName::fromString('New Name'));
 
-        expect($user->name()->value())->toBe('New Name')
-            ->and($user->updatedAt())->not->toBe($before);
-    });
+        self::assertSame('New Name', $user->name()->value());
+        self::assertNotEquals($before, $user->updatedAt());
+    }
 
-    it('deactivates and reactivates a user', function (): void {
-        $user = User::create(UserId::generate(), Email::fromString('a@b.com'), UserName::fromString('AB'));
+    #[Test]
+    public function itDeactivatesAndReactivatesAUser(): void
+    {
+        $user = $this->newUser();
 
         $user->deactivate();
-        expect($user->status())->toBe(UserStatus::Inactive);
+        self::assertSame(UserStatus::Inactive, $user->status());
 
         $user->activate();
-        expect($user->status())->toBe(UserStatus::Active);
-    });
+        self::assertSame(UserStatus::Active, $user->status());
+    }
 
-    // ─── Additional coverage ─────────────────────────────────────────────────
+    #[Test]
+    public function itSetsCreatedAtAndUpdatedAtOnCreate(): void
+    {
+        $before = new \DateTimeImmutable();
+        $user = $this->newUser();
+        $after = new \DateTimeImmutable();
 
-    it('sets createdAt and updatedAt on create', function (): void {
-        $before = new DateTimeImmutable();
-        $user   = User::create(UserId::generate(), Email::fromString('a@b.com'), UserName::fromString('AB'));
-        $after  = new DateTimeImmutable();
+        self::assertGreaterThanOrEqual($before, $user->createdAt());
+        self::assertLessThanOrEqual($after, $user->createdAt());
+        self::assertEquals($user->createdAt(), $user->updatedAt());
+    }
 
-        expect($user->createdAt())->toBeInstanceOf(DateTimeImmutable::class)
-            ->and($user->createdAt() >= $before)->toBeTrue()
-            ->and($user->createdAt() <= $after)->toBeTrue()
-            ->and($user->updatedAt())->toEqual($user->createdAt());
-    });
-
-    it('changes email and updates updatedAt', function (): void {
-        $user   = User::create(UserId::generate(), Email::fromString('old@b.com'), UserName::fromString('AB'));
+    #[Test]
+    public function itChangesTheEmailAndUpdatesUpdatedAt(): void
+    {
+        $user = $this->newUser('old@b.com');
         $before = $user->updatedAt();
 
         usleep(1000);
-        $newEmail = Email::fromString('new@b.com');
-        $user->changeEmail($newEmail);
+        $user->changeEmail(Email::fromString('new@b.com'));
 
-        expect($user->email()->value())->toBe('new@b.com')
-            ->and($user->updatedAt())->not->toEqual($before);
-    });
+        self::assertSame('new@b.com', $user->email()->value());
+        self::assertNotEquals($before, $user->updatedAt());
+    }
 
-    it('exposes value objects via accessors', function (): void {
-        $id    = UserId::generate();
-        $email = Email::fromString('get@b.com');
-        $name  = UserName::fromString('Getter Test');
-        $user  = User::create($id, $email, $name);
-
-        // Pull events so the aggregate is clean; accessor assertions are independent.
+    #[Test]
+    public function itExposesItsValueObjectsThroughAccessors(): void
+    {
+        $id = UserId::generate();
+        $user = User::create($id, Email::fromString('get@b.com'), UserName::fromString('Getter Test'));
         $user->pullDomainEvents();
 
-        expect($user->id())->toBeInstanceOf(App\Domain\Model\UserId::class)
-            ->and($user->email())->toBeInstanceOf(App\Domain\Model\Email::class)
-            ->and($user->name())->toBeInstanceOf(App\Domain\Model\UserName::class)
-            ->and($user->status())->toBeInstanceOf(App\Domain\Model\UserStatus::class)
-            ->and($user->id()->value())->toBe($id->value())
-            ->and($user->email()->value())->toBe('get@b.com')
-            ->and($user->name()->value())->toBe('Getter Test');
-    });
-});
+        self::assertSame($id->value(), $user->id()->value());
+        self::assertSame('get@b.com', $user->email()->value());
+        self::assertSame('Getter Test', $user->name()->value());
+        self::assertSame(UserStatus::Active, $user->status());
+    }
+}

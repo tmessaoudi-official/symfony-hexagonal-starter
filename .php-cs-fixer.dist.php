@@ -19,7 +19,7 @@ return (new Config())
         '@PSR12'                         => true,
         '@Symfony'                       => true,
 
-        // ─── PHP 8.4 features ─────────────────────────────────────────────
+        // ─── Strictness ───────────────────────────────────────────────────
         'declare_strict_types'           => true,
         'strict_param'                   => true,
         'strict_comparison'              => true,
@@ -27,6 +27,8 @@ return (new Config())
         // ─── Imports ──────────────────────────────────────────────────────
         'ordered_imports'                => ['sort_algorithm' => 'alpha'],
         'no_unused_imports'              => true,
+        // Import App\... names instead of writing them fully qualified (Rector emits FQCNs).
+        'fully_qualified_strict_types'   => ['import_symbols' => true],
         'global_namespace_import'        => [
             'import_classes'   => false,
             'import_functions' => false,

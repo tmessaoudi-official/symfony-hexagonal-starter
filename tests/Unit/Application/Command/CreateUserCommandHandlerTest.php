@@ -9,22 +9,16 @@ use App\Domain\Exception\UserAlreadyExistsException;
 use App\Domain\Model\Email;
 use App\Domain\Model\User;
 use App\Domain\Repository\UserRepository;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 
-uses(\PHPUnit\Framework\TestCase::class);
-
-/**
- * @var UserRepository&MockObject $repo
- * @var MessageBusInterface&MockObject $bus
- * @var CreateUserCommandHandler $handler
- */
+uses(TestCase::class);
 
 describe('CreateUserCommandHandler (Unit)', function (): void {
     beforeEach(function (): void {
-        $this->repo    = $this->createMock(UserRepository::class);
-        $this->bus     = $this->createMock(MessageBusInterface::class);
+        $this->repo = $this->createMock(UserRepository::class);
+        $this->bus = $this->createMock(MessageBusInterface::class);
         $this->handler = new CreateUserCommandHandler($this->repo, $this->bus);
     });
 
@@ -63,9 +57,12 @@ describe('CreateUserCommandHandler (Unit)', function (): void {
 
         ($this->handler)(new CreateUserCommand(email: 'carol@example.com', name: 'Carol King'));
 
-        expect($dispatchedEvent)->toBeInstanceOf(UserCreated::class)
-            ->and($dispatchedEvent->email->value())->toBe('carol@example.com')
-            ->and($dispatchedEvent->name->value())->toBe('Carol King');
+        $event = $dispatchedEvent instanceof UserCreated
+            ? $dispatchedEvent
+            : throw new RuntimeException('No UserCreated event was dispatched.');
+
+        expect($event->email->value())->toBe('carol@example.com')
+            ->and($event->name->value())->toBe('Carol King');
     });
 
     it('saves the user with the correct email and name', function (): void {
@@ -87,13 +84,15 @@ describe('CreateUserCommandHandler (Unit)', function (): void {
 
         ($this->handler)(new CreateUserCommand(email: 'dave@example.com', name: 'Dave Duncan'));
 
-        expect($savedUser)->toBeInstanceOf(User::class)
-            ->and($savedUser->email()->value())->toBe('dave@example.com')
+        $savedUser ??= throw new RuntimeException('No user was saved.');
+
+        expect($savedUser->email()->value())->toBe('dave@example.com')
             ->and($savedUser->name()->value())->toBe('Dave Duncan');
     });
 
     it('throws UserAlreadyExistsException when the email is already registered', function (): void {
         $this->repo
+            ->expects($this->once())
             ->method('existsByEmail')
             ->with($this->callback(fn (Email $e): bool => $e->value() === 'taken@example.com'))
             ->willReturn(true);

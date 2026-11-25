@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Persistence\Doctrine\Entity;
 
-use DateTimeImmutable;
+use App\Domain\Model\UserRole;
+use App\Domain\Model\UserStatus;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
  * UserEntity — Doctrine ORM entity for the users table.
  *
  * WHY a SEPARATE class from Domain\Model\User?
- * - Doctrine imposes its own concerns: lazy loading proxies, change tracking, lifecycle callbacks.
+ * - Doctrine imposes its own concerns: lazy loading, change tracking, lifecycle callbacks.
  * - These concerns must not pollute the Domain model.
  * - Keeping them separate means the domain entity can use readonly properties, final classes,
  *   and value objects freely — Doctrine doesn't need to reflect on them.
@@ -23,51 +24,38 @@ use Doctrine\ORM\Mapping as ORM;
  *   keeping the entity aware of the enum (which IS in the Domain) only via import.
  *   This is an acceptable coupling point — the entity is Infrastructure.
  */
-#[ORM\Entity(repositoryClass: \App\Infrastructure\Persistence\Doctrine\Repository\DoctrineUserRepository::class)]
+// No repositoryClass: DoctrineUserRepository is the hexagonal adapter (it implements the
+// Domain port), not a Doctrine EntityRepository. Naming it here made Doctrine instantiate the
+// adapter with (EntityManager, ClassMetadata) and fail on every getRepository() call.
+#[ORM\Entity]
 #[ORM\Table(name: 'users')]
-#[ORM\UniqueConstraint(name: 'users_email_unique', columns: ['email'])]
+// Same constraint name as the migration (uq_ prefix, like ck_ for CHECKs): a different name here
+// makes Doctrine see schema drift and generate a rename in every migrations:diff.
+#[ORM\UniqueConstraint(name: 'uq_users_email', columns: ['email'])]
+// Mirrors the index the migration creates (keyset pagination and "newest users" sorts).
+#[ORM\Index(name: 'idx_users_created_at', columns: ['created_at'])]
 #[ORM\HasLifecycleCallbacks]
 class UserEntity
 {
-    #[ORM\Id]
-    #[ORM\Column(type: 'guid', unique: true)]
-    private string $id;
-
-    #[ORM\Column(type: 'string', length: 254, unique: true)]
-    private string $email;
-
-    #[ORM\Column(type: 'string', length: 100)]
-    private string $name;
-
-    #[ORM\Column(type: 'string', length: 20, enumType: \App\Domain\Model\UserStatus::class)]
-    private \App\Domain\Model\UserStatus $status;
-
-    #[ORM\Column(type: 'string', length: 20, enumType: \App\Domain\Model\UserRole::class, options: ['default' => 'regular'])]
-    private \App\Domain\Model\UserRole $role = \App\Domain\Model\UserRole::Regular;
-
-    #[ORM\Column(type: 'datetime_immutable')]
-    private DateTimeImmutable $createdAt;
-
-    #[ORM\Column(type: 'datetime_immutable')]
-    private DateTimeImmutable $updatedAt;
-
-    // No-args constructor required by Doctrine for proxy instantiation.
+    // Doctrine never calls this constructor when it loads a row (it instantiates without it);
+    // only the UserMapper does, when it turns a Domain User into an entity.
     public function __construct(
-        string $id,
-        string $email,
-        string $name,
-        \App\Domain\Model\UserStatus $status,
-        \App\Domain\Model\UserRole $role,
-        DateTimeImmutable $createdAt,
-        DateTimeImmutable $updatedAt,
+        #[ORM\Id]
+        #[ORM\Column(type: 'guid')]
+        private string $id,
+        #[ORM\Column(type: 'string', length: 254)]
+        private string $email,
+        #[ORM\Column(type: 'string', length: 100)]
+        private string $name,
+        #[ORM\Column(type: 'string', length: 20, enumType: UserStatus::class, options: ['default' => 'active'])]
+        private UserStatus $status,
+        #[ORM\Column(type: 'string', length: 20, enumType: UserRole::class, options: ['default' => 'regular'])]
+        private UserRole $role,
+        #[ORM\Column(type: 'datetime_immutable')]
+        private \DateTimeImmutable $createdAt,
+        #[ORM\Column(type: 'datetime_immutable')]
+        private \DateTimeImmutable $updatedAt,
     ) {
-        $this->id        = $id;
-        $this->email     = $email;
-        $this->name      = $name;
-        $this->status    = $status;
-        $this->role      = $role;
-        $this->createdAt = $createdAt;
-        $this->updatedAt = $updatedAt;
     }
 
     public function getId(): string
@@ -95,37 +83,37 @@ class UserEntity
         $this->name = $name;
     }
 
-    public function getStatus(): \App\Domain\Model\UserStatus
+    public function getStatus(): UserStatus
     {
         return $this->status;
     }
 
-    public function setStatus(\App\Domain\Model\UserStatus $status): void
+    public function setStatus(UserStatus $status): void
     {
         $this->status = $status;
     }
 
-    public function getRole(): \App\Domain\Model\UserRole
+    public function getRole(): UserRole
     {
         return $this->role;
     }
 
-    public function setRole(\App\Domain\Model\UserRole $role): void
+    public function setRole(UserRole $role): void
     {
         $this->role = $role;
     }
 
-    public function getCreatedAt(): DateTimeImmutable
+    public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
     }
 
-    public function getUpdatedAt(): DateTimeImmutable
+    public function getUpdatedAt(): \DateTimeImmutable
     {
         return $this->updatedAt;
     }
 
-    public function setUpdatedAt(DateTimeImmutable $updatedAt): void
+    public function setUpdatedAt(\DateTimeImmutable $updatedAt): void
     {
         $this->updatedAt = $updatedAt;
     }

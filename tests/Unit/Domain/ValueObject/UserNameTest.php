@@ -2,70 +2,68 @@
 
 declare(strict_types=1);
 
+namespace App\Tests\Unit\Domain\ValueObject;
+
 use App\Domain\Model\UserName;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
 
-describe('UserName Value Object', function (): void {
-    it('creates a valid name', function (): void {
-        $name = UserName::fromString('John Doe');
-        expect($name->value())->toBe('John Doe');
-    });
+/** PHPUnit class on purpose (Infection gates src/Domain); see EmailTest. */
+final class UserNameTest extends TestCase
+{
+    #[Test]
+    #[DataProvider('validNames')]
+    public function itAcceptsAValidName(string $input, string $expected): void
+    {
+        self::assertSame($expected, UserName::fromString($input)->value());
+    }
 
-    it('accepts a name with international characters', function (): void {
-        $name = UserName::fromString('María García');
-        expect($name->value())->toBe('María García');
-    });
+    /** @return iterable<string, array{string, string}> */
+    public static function validNames(): iterable
+    {
+        yield 'simple name' => ['John Doe', 'John Doe'];
+        yield 'international characters' => ['María García', 'María García'];
+        yield 'hyphenated name' => ['Jean-Pierre', 'Jean-Pierre'];
+        yield 'minimum: exactly 2 characters' => ['AB', 'AB'];
+        yield 'maximum: exactly 100 characters' => [str_repeat('a', 100), str_repeat('a', 100)];
+        yield 'leading and trailing whitespace is trimmed' => ['  Alice  ', 'Alice'];
+    }
 
-    it('accepts a hyphenated name', function (): void {
-        $name = UserName::fromString('Jean-Pierre');
-        expect($name->value())->toBe('Jean-Pierre');
-    });
+    #[Test]
+    #[DataProvider('invalidNames')]
+    public function itRejectsAnInvalidName(string $input, string $expectedMessage): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageIsOrContains($expectedMessage);
 
-    it('accepts the minimum valid name of exactly 2 characters', function (): void {
-        $name = UserName::fromString('AB');
-        expect($name->value())->toBe('AB');
-    });
+        UserName::fromString($input);
+    }
 
-    it('accepts a name of exactly 100 characters', function (): void {
-        $hundredChars = str_repeat('a', 100);
-        $name         = UserName::fromString($hundredChars);
-        expect($name->value())->toBe($hundredChars);
-    });
+    /** @return iterable<string, array{string, string}> */
+    public static function invalidNames(): iterable
+    {
+        yield 'empty string' => ['', 'at least 2 characters'];
+        yield 'too short (1 char)' => ['A', 'at least 2 characters'];
+        yield 'whitespace only' => ['   ', 'at least 2 characters'];
+        yield 'too long (101 chars)' => [str_repeat('a', 101), 'cannot exceed 100 characters'];
+    }
 
-    it('trims leading and trailing whitespace', function (): void {
-        $name = UserName::fromString('  Alice  ');
-        expect($name->value())->toBe('Alice');
-    });
+    #[Test]
+    public function itConsidersTwoUserNamesWithTheSameValueEqual(): void
+    {
+        self::assertTrue(UserName::fromString('Alice')->equals(UserName::fromString('Alice')));
+    }
 
-    it('throws on an empty string', function (): void {
-        UserName::fromString('');
-    })->throws(InvalidArgumentException::class, 'at least 2 characters');
+    #[Test]
+    public function itConsidersTwoUserNamesWithDifferentValuesUnequal(): void
+    {
+        self::assertFalse(UserName::fromString('Alice')->equals(UserName::fromString('Bob')));
+    }
 
-    it('throws when the name is too short (1 char)', function (): void {
-        UserName::fromString('A');
-    })->throws(InvalidArgumentException::class, 'at least 2 characters');
-
-    it('throws when the name is whitespace only', function (): void {
-        UserName::fromString('   ');
-    })->throws(InvalidArgumentException::class, 'at least 2 characters');
-
-    it('throws when the name exceeds 100 characters', function (): void {
-        UserName::fromString(str_repeat('a', 101));
-    })->throws(InvalidArgumentException::class, 'cannot exceed 100 characters');
-
-    it('considers two UserNames with the same value as equal', function (): void {
-        $a = UserName::fromString('Alice');
-        $b = UserName::fromString('Alice');
-        expect($a->equals($b))->toBeTrue();
-    });
-
-    it('considers two UserNames with different values as unequal', function (): void {
-        $a = UserName::fromString('Alice');
-        $b = UserName::fromString('Bob');
-        expect($a->equals($b))->toBeFalse();
-    });
-
-    it('casts to string', function (): void {
-        $name = UserName::fromString('Alice Smith');
-        expect((string) $name)->toBe('Alice Smith');
-    });
-});
+    #[Test]
+    public function itCastsToString(): void
+    {
+        self::assertSame('Alice Smith', (string) UserName::fromString('Alice Smith'));
+    }
+}

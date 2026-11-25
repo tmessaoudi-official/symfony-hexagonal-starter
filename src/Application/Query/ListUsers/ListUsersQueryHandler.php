@@ -6,6 +6,7 @@ namespace App\Application\Query\ListUsers;
 
 use App\Application\DTO\Output\UserListOutput;
 use App\Application\DTO\Output\UserOutput;
+use App\Domain\Model\User;
 use App\Domain\Model\UserId;
 use App\Domain\Repository\UserRepository;
 
@@ -16,11 +17,12 @@ use App\Domain\Repository\UserRepository;
  * - If we get limit + 1 back, there is a next page (hasMore = true); drop the last item.
  * - The nextCursor is the ID of the last returned item (not the +1 sentinel).
  */
-final class ListUsersQueryHandler
+final readonly class ListUsersQueryHandler
 {
     public function __construct(
-        private readonly UserRepository $users,
-    ) {}
+        private UserRepository $users,
+    ) {
+    }
 
     public function __invoke(ListUsersQuery $query): UserListOutput
     {
@@ -37,7 +39,7 @@ final class ListUsersQueryHandler
         }
 
         $items = array_map(
-            fn ($user) => new UserOutput(
+            fn (User $user): UserOutput => new UserOutput(
                 id: $user->id()->value(),
                 email: $user->email()->value(),
                 name: $user->name()->value(),
@@ -48,8 +50,8 @@ final class ListUsersQueryHandler
             $users,
         );
 
-        $nextCursor = $hasMore && !empty($items)
-            ? $items[array_key_last($items)]->id
+        $nextCursor = $hasMore && $items !== []
+            ? array_last($items)->id
             : null;
 
         return new UserListOutput(

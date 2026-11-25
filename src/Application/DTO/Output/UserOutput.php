@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Application\DTO\Output;
 
-use DateTimeImmutable;
-
 /**
  * UserOutput — the read model DTO.
  *
@@ -25,7 +23,8 @@ final readonly class UserOutput
         public string $email,
         public string $name,
         public string $status,
-        public DateTimeImmutable $createdAt,
-        public DateTimeImmutable $updatedAt,
-    ) {}
+        public \DateTimeImmutable $createdAt,
+        public \DateTimeImmutable $updatedAt,
+    ) {
+    }
 }

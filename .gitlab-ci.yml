@@ -1,4 +1,5 @@
-image: php:8.4-cli-alpine
+# 8.5: newest PHP whose extensions (ext-amqp, pcov, phpredis) have stable releases that build; see php-next below.
+image: php:8.5-cli-alpine
 
 stages:
     - quality
@@ -9,7 +10,7 @@ variables:
     COMPOSER_CACHE_DIR: '$CI_PROJECT_DIR/.composer-cache'
     APP_ENV: test
     APP_SECRET: ci_test_secret
-    DATABASE_URL: 'postgresql://app:app@postgres:5432/app_test?serverVersion=16'
+    DATABASE_URL: 'postgresql://app:app@postgres:5432/app_test?serverVersion=19'
     REDIS_URL: 'redis://redis:6379'
     MESSENGER_TRANSPORT_DSN: 'in-memory://'
     MAILER_DSN: 'null://null'
@@ -19,8 +20,15 @@ variables:
 # ─── Shared setup ─────────────────────────────────────────────────────────────
 .setup: &setup
     before_script:
-        - apk add --no-cache git curl unzip libpq-dev icu-dev libzip-dev
-        - docker-php-ext-install pdo pdo_pgsql intl zip
+        - apk add --no-cache git curl unzip libpq-dev icu-dev libzip-dev oniguruma-dev rabbitmq-c
+        # OPcache and PDO are built into PHP 8.5+ images; PECL is gone, PIE replaces it.
+        - docker-php-ext-install pdo_pgsql intl zip
+        - php -m | grep -qix mbstring || docker-php-ext-install mbstring   # bundled up to 8.5, not in 8.6 images
+        - apk add --no-cache --virtual .ext-build-deps $PHPIZE_DEPS libtool linux-headers rabbitmq-c-dev
+        - curl -fsSL -o /usr/local/bin/pie https://github.com/php/pie/releases/download/1.6.0/pie.phar && chmod +x /usr/local/bin/pie
+        - pie install php-amqp/php-amqp   # ext-amqp is required by symfony/amqp-messenger
+        - pie install phpredis/phpredis   # ext-redis backs the Redis cache pools
+        - pie install pecl/pcov           # coverage for the unit and mutation jobs
         - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
         - composer install --prefer-dist --no-progress --no-interaction
     cache:
@@ -59,23 +67,24 @@ tests-integration:
     stage: test
     <<: *setup
     services:
-        - name: postgres:16-alpine
+        - name: postgres:19-alpine
           alias: postgres
           variables:
               POSTGRES_DB: app_test
               POSTGRES_USER: app
               POSTGRES_PASSWORD: app
-        - name: redis:7-alpine
+        - name: redis:8.12-alpine
           alias: redis
     script:
         - php bin/console doctrine:migrations:migrate --no-interaction
-        - vendor/bin/pest --testsuite=Integration
+        - php bin/console doctrine:schema:validate   # mapping and migrated schema must agree
+        - vendor/bin/pest --testsuite=Integration,Functional   # Functional = HTTP-level, same DB
 
 tests-e2e:
     stage: test
     <<: *setup
     services:
-        - name: postgres:16-alpine
+        - name: postgres:19-alpine
           alias: postgres
           variables:
               POSTGRES_DB: app_test
@@ -92,5 +101,21 @@ mutation:
     needs:
         - tests-unit
     script:
-        - vendor/bin/infection --threads=4 --min-msi=80 --min-covered-msi=85
+        - vendor/bin/infection --threads=4 --no-progress   # Domain layer; MSI floor in infection.json5
+        - vendor/bin/pest --testsuite=Unit --mutate --class='App\Application' --parallel --min=98   # Application layer
     allow_failure: false
+
+# ─── Forward compatibility (non-blocking) ─────────────────────────────────────
+# PHP 8.6 cannot build ext-amqp, pcov or a stable phpredis yet (no released fix): this job skips them.
+# When php-amqp, pcov and phpredis ship stable 8.6 releases, move the image above to 8.6 and delete this job.
+php-next:
+    stage: test
+    image: php:8.6-cli-alpine
+    allow_failure: true
+    before_script:
+        - apk add --no-cache git curl unzip libpq-dev icu-dev libzip-dev oniguruma-dev
+        - docker-php-ext-install pdo_pgsql intl zip mbstring
+        - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+        - composer install --prefer-dist --no-progress --no-interaction --ignore-platform-req=ext-amqp --ignore-platform-req=ext-redis --ignore-platform-req=php
+    script:
+        - vendor/bin/pest --testsuite=Unit

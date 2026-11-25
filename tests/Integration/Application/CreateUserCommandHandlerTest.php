@@ -7,9 +7,9 @@ use App\Application\Command\CreateUser\CreateUserCommandHandler;
 use App\Domain\Exception\UserAlreadyExistsException;
 use App\Domain\Model\Email;
 use App\Domain\Repository\UserRepository;
-use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Bundle\FrameworkBundle\Test\TestContainer;
 
-/**
+/*
  * Integration test for CreateUserCommandHandler.
  *
  * Uses KernelTestCase (wired in tests/Pest.php) with DAMA DoctrineTestBundle:
@@ -19,9 +19,11 @@ use Symfony\Component\Messenger\MessageBusInterface;
  */
 describe('CreateUserCommandHandler (Integration)', function (): void {
     beforeEach(function (): void {
-        $container      = $this->getContainer();
-        $this->handler  = $container->get(CreateUserCommandHandler::class);
-        $this->repo     = $container->get(UserRepository::class);
+        // getContainer() is typed Container but returns the test container, which exposes private services.
+        /** @var TestContainer $container */
+        $container = $this->getContainer();
+        $this->handler = $container->get(CreateUserCommandHandler::class);
+        $this->repo = $container->get(UserRepository::class);
     });
 
     it('creates a user and persists it to the database', function (): void {
@@ -29,7 +31,7 @@ describe('CreateUserCommandHandler (Integration)', function (): void {
         ($this->handler)($command);
 
         $email = Email::fromString('alice@example.com');
-        $user  = $this->repo->findByEmail($email);
+        $user = $this->repo->findByEmail($email);
 
         expect($user)->not->toBeNull()
             ->and($user->email()->value())->toBe('alice@example.com')

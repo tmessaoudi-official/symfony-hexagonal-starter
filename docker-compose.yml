@@ -1,5 +1,3 @@
-version: '3.9'
-
 # ─── Dev compose — local development ──────────────────────────────────────────
 # Usage: make dev (which runs docker compose up -d)
 
@@ -17,7 +15,7 @@ services:
         environment:
             APP_ENV: dev
             APP_DEBUG: '1'
-            DATABASE_URL: 'postgresql://app:app@postgres:5432/app?serverVersion=16&charset=utf8'
+            DATABASE_URL: 'postgresql://app:app@postgres:5432/app?serverVersion=19&charset=utf8'
             REDIS_URL: 'redis://redis:6379'
             MESSENGER_TRANSPORT_DSN: 'amqp://guest:guest@rabbitmq:5672/%2f/messages'
             MAILER_DSN: 'smtp://mailpit:1025'
@@ -33,7 +31,7 @@ services:
 
     # ─── Nginx ────────────────────────────────────────────────────────────────
     nginx:
-        image: nginx:1.27-alpine
+        image: nginx:1.31-alpine
         ports:
             - '8080:80'
         volumes:
@@ -44,7 +42,7 @@ services:
 
     # ─── PostgreSQL ───────────────────────────────────────────────────────────
     postgres:
-        image: postgres:16-alpine
+        image: postgres:19-alpine
         environment:
             POSTGRES_DB: app
             POSTGRES_USER: app
@@ -52,7 +50,8 @@ services:
         ports:
             - '5432:5432'
         volumes:
-            - postgres_data:/var/lib/postgresql/data
+            # 18+ images keep PGDATA at /var/lib/postgresql/<major>/docker: mount the parent.
+            - postgres_data:/var/lib/postgresql
         healthcheck:
             test: ['CMD-SHELL', 'pg_isready -U app -d app']
             interval: 5s
@@ -61,7 +60,7 @@ services:
 
     # ─── Redis ────────────────────────────────────────────────────────────────
     redis:
-        image: redis:7-alpine
+        image: redis:8.12-alpine
         ports:
             - '6379:6379'
         healthcheck:
@@ -72,7 +71,7 @@ services:
 
     # ─── RabbitMQ ─────────────────────────────────────────────────────────────
     rabbitmq:
-        image: rabbitmq:3.13-management-alpine
+        image: rabbitmq:4.4-management-alpine
         ports:
             - '5672:5672'
             - '15672:15672'   # Management UI
@@ -111,7 +110,7 @@ services:
             - .:/app
         environment:
             APP_ENV: dev
-            DATABASE_URL: 'postgresql://app:app@postgres:5432/app?serverVersion=16&charset=utf8'
+            DATABASE_URL: 'postgresql://app:app@postgres:5432/app?serverVersion=19&charset=utf8'
             MESSENGER_TRANSPORT_DSN: 'amqp://guest:guest@rabbitmq:5672/%2f/messages'
             MAILER_DSN: 'smtp://mailpit:1025'
             MAILER_FROM_ADDRESS: 'noreply@example.com'

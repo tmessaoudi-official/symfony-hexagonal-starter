@@ -14,7 +14,8 @@ final readonly class EligibilityResult
     private function __construct(
         private bool $eligible,
         private ?string $reason,
-    ) {}
+    ) {
+    }
 
     public static function eligible(): self
     {

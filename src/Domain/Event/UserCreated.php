@@ -7,7 +7,6 @@ namespace App\Domain\Event;
 use App\Domain\Model\Email;
 use App\Domain\Model\UserId;
 use App\Domain\Model\UserName;
-use DateTimeImmutable;
 
 /**
  * UserCreated Domain Event.
@@ -25,13 +24,13 @@ use DateTimeImmutable;
  */
 final readonly class UserCreated
 {
-    public DateTimeImmutable $occurredAt;
+    public \DateTimeImmutable $occurredAt;
 
     public function __construct(
         public UserId $userId,
         public Email $email,
         public UserName $name,
     ) {
-        $this->occurredAt = new DateTimeImmutable();
+        $this->occurredAt = new \DateTimeImmutable();
     }
 }

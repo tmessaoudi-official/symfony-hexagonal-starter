@@ -1,12 +1,9 @@
-includes:
-    - vendor/phpstan/extension-installer/loader.php
-    - vendor/phpstan/phpstan-symfony/extension.neon
-    - vendor/phpstan/phpstan-doctrine/extension.neon
+# phpstan-symfony and phpstan-doctrine are registered automatically by
+# phpstan/extension-installer: no includes needed.
 
 parameters:
-    # Level 8 = strictest standard level.
-    # Ensures: no unknown classes, no mixed types, full return type coverage,
-    # dead code detection, strict null checks, and more.
+    # Level 8 of 0-10: every check up to strict null-safety (calling a method on a
+    # possibly-null value is an error). Levels 9 and 10 add checks on mixed.
     level: 8
 
     paths:
@@ -22,12 +19,6 @@ parameters:
     # ─── Doctrine ─────────────────────────────────────────────────────────────
     doctrine:
         objectManagerLoader: tests/doctrine-object-manager.php
-
-    # ─── Ignores ──────────────────────────────────────────────────────────────
-    ignoreErrors:
-        # API Platform ProcessorInterface signature uses mixed intentionally.
-        - message: '#Parameter \$data of method .* has no type hint#'
-          path: src/Infrastructure/Http/StateProcessor
 
     # ─── Type extensions ──────────────────────────────────────────────────────
     treatPhpDocTypesAsCertain: false

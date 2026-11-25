@@ -18,18 +18,19 @@ use Symfony\Component\Mime\Email as SymfonyEmail;
  * - Replacing Symfony Mailer with SendGrid means writing a new adapter, not touching
  *   application logic.
  */
-final class SymfonyMailerAdapter implements Mailer
+final readonly class SymfonyMailerAdapter implements Mailer
 {
     public function __construct(
-        private readonly MailerInterface $mailer,
-        private readonly LoggerInterface $logger,
-        private readonly string $fromAddress,
-        private readonly string $fromName,
-    ) {}
+        private MailerInterface $mailer,
+        private LoggerInterface $logger,
+        private string $fromAddress,
+        private string $fromName,
+    ) {
+    }
 
     public function sendWelcome(string $to, string $name): void
     {
-        $email = (new SymfonyEmail())
+        $email = new SymfonyEmail()
             ->from(sprintf('%s <%s>', $this->fromName, $this->fromAddress))
             ->to($to)
             ->subject(sprintf('Welcome, %s!', $name))

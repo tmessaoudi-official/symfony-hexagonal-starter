@@ -23,8 +23,13 @@ services:
             - '../src/Application/DTO/'
 
     # ─── Domain Layer ─────────────────────────────────────────────────────────
-    # Domain services are registered here. Repositories are interfaces;
+    # Domain services are plain PHP classes; the container wires them here so the
+    # Domain itself never imports Symfony. Repositories are interfaces;
     # implementations are in Infrastructure and bound below.
+    App\Domain\Service\:
+        resource: '../src/Domain/Service/'
+        exclude:
+            - '../src/Domain/Service/EligibilityResult.php'
 
     # ─── Infrastructure Layer ─────────────────────────────────────────────────
     App\Infrastructure\:

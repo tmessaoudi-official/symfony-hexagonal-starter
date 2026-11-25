@@ -1,0 +1,25 @@
+# Build context for docker/app/Dockerfile.
+# Without this file, `COPY . .` copied the host's vendor/ (dev packages included) over the
+# --no-dev vendor of the prod image, plus var/, build/, .git and any local .env overrides.
+# Every stage installs its own dependencies with Composer, so vendor/ never comes from the host.
+
+.git
+.github
+.claude
+.idea
+.vscode
+
+vendor
+var
+build
+node_modules
+
+# Local secrets and overrides. The committed .env (non-secret defaults) stays: Symfony reads it.
+.env.local
+.env.*.local
+
+.php-cs-fixer.cache
+.phpunit.cache
+.phpunit.result.cache
+
+docker-compose*.yml

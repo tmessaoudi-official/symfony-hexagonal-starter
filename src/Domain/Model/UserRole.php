@@ -6,9 +6,9 @@ namespace App\Domain\Model;
 
 enum UserRole: string
 {
-    case Regular   = 'regular';
+    case Regular = 'regular';
     case Moderator = 'moderator';
-    case Admin     = 'admin';
+    case Admin = 'admin';
 
     /**
      * Returns true if $this is the immediate next role above $from.
@@ -18,8 +18,8 @@ enum UserRole: string
     {
         return match ($this) {
             self::Moderator => $from === self::Regular,
-            self::Admin     => $from === self::Moderator,
-            self::Regular   => false,
+            self::Admin => $from === self::Moderator,
+            self::Regular => false,
         };
     }
 }

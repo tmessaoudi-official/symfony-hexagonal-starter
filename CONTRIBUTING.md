@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- PHP 8.4
+- PHP 8.5 (CI also runs a non-blocking PHP 8.6 job; see `.github/workflows/ci.yml`)
 - Composer 2
 - Docker & Docker Compose (for PostgreSQL and integration tests)
 - Make
@@ -21,12 +21,18 @@ make dev     # starts all services
 ```bash
 make test-unit        # Domain unit tests (pure PHP, no DB)
 make test-integration # Integration tests with real DB (DAMA rollback)
+make test-functional  # HTTP-level API tests (real DB)
 make test-e2e         # Behat API scenarios
-make test             # All tests
+make test             # All tests (creates and migrates the app_test database first; every
+                      # test target runs with APP_ENV=test and app_test, never the dev database)
 make analyze          # PHPStan level 8
 make cs-fix           # PHP-CS-Fixer apply
-make mutation         # Infection mutation testing
+make mutation         # Mutation testing (Infection on Domain, Pest on Application)
 ```
+
+Domain unit tests (`tests/Unit/Domain/`) are PHPUnit classes, not Pest closures, because
+Infection can only drive PHPUnit classes. Pest runs them like any other test. Keep new Domain
+tests in that style; see [docs/testing.md](docs/testing.md).
 
 ## Architecture rules
 
@@ -51,7 +57,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) (this file) for the scaffold guide — bu
 ## Code style
 
 - PSR-12 + Symfony coding standards (PHP-CS-Fixer)
-- Rector for automated refactoring to modern PHP 8.4
+- Rector for automated refactoring to modern PHP (the target version is read from `composer.json`)
 - Readonly properties by default for Value Objects and DTOs
 
 ## Pull requests

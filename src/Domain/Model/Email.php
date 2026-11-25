@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\Model;
 
-use InvalidArgumentException;
-
 /**
  * Email Value Object.
  *
@@ -15,7 +13,7 @@ use InvalidArgumentException;
  *   regardless of which adapter (HTTP, CLI, import job) calls it.
  * - Both layers can coexist cheaply — the domain check is a single regex call.
  */
-final readonly class Email
+final readonly class Email implements \Stringable
 {
     private string $value;
 
@@ -24,17 +22,19 @@ final readonly class Email
         $normalised = strtolower(trim($value));
 
         if ($normalised === '') {
-            throw new InvalidArgumentException('Email address cannot be empty.');
+            throw new \InvalidArgumentException('Email address cannot be empty.');
+        }
+
+        // Length first: FILTER_VALIDATE_EMAIL also rejects over-long parts, which would
+        // otherwise hide this rule behind a generic "not a valid email" message.
+        if (strlen($normalised) > 254) {
+            throw new \InvalidArgumentException('Email address exceeds the maximum length of 254 characters.');
         }
 
         // FILTER_VALIDATE_EMAIL covers RFC 5321/5322 basics without a heavy library.
         // It rejects obvious misformat (no @, double dots, invalid TLD patterns).
         if (filter_var($normalised, FILTER_VALIDATE_EMAIL) === false) {
-            throw new InvalidArgumentException(sprintf('"%s" is not a valid email address.', $value));
-        }
-
-        if (strlen($normalised) > 254) {
-            throw new InvalidArgumentException('Email address exceeds the maximum length of 254 characters.');
+            throw new \InvalidArgumentException(sprintf('"%s" is not a valid email address.', $value));
         }
 
         $this->value = $normalised;

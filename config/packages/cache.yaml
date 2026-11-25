@@ -1,7 +1,9 @@
 framework:
     cache:
         # ─── App Cache (default pool) ──────────────────────────────────────────
-        # Uses Redis in production; filesystem in dev/test.
+        # Redis in prod, filesystem in dev, array in test (see the when@ blocks below).
+        # The named pools below stay on Redis in dev too (the compose stack runs Redis), so
+        # every PHP image needs ext-redis (installed with PIE in docker/app/Dockerfile).
         app: cache.adapter.redis
         default_redis_provider: '%env(REDIS_URL)%'
 
